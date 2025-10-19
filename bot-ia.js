@@ -35,18 +35,14 @@ const users = new Map();
 // Webhook endpoint
 app.post(`/webhook`, async (req, res) => {
   try {
-    console.log('📨 Webhook recebido:', JSON.stringify(req.body, null, 2));
+    console.log('📨 Webhook recebido');
     
     const update = req.body;
     
     if (update.message) {
-      console.log('💬 Processando mensagem...');
       await handleMessage(update.message);
     } else if (update.callback_query) {
-      console.log('🔘 Processando callback...');
       await handleCallbackQuery(update.callback_query);
-    } else {
-      console.log('❓ Update não reconhecido:', update);
     }
     
     res.sendStatus(200);
@@ -151,8 +147,6 @@ Se precisar de dados específicos, sugira que o usuário use o menu ou comandos.
 Usuário: ${user?.firstName || 'Usuário'}
 Sistema: Caderninho Digital`;
 
-    console.log('🧠 Enviando para Groq AI...');
-    
     const completion = await groq.chat.completions.create({
       messages: [
         { role: 'system', content: systemPrompt },
@@ -165,7 +159,7 @@ Sistema: Caderninho Digital`;
     
     const aiResponse = completion.choices[0]?.message?.content || 'Desculpe, não consegui processar sua mensagem.';
     
-    console.log('🤖 Resposta da IA:', aiResponse.substring(0, 100) + '...');
+    console.log('🤖 Resposta da IA gerada');
     
     // Adicionar botões contextuais
     const buttons = getContextButtons(text);
