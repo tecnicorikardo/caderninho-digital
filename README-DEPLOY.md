@@ -1,49 +1,46 @@
 # 🚀 Deploy do Caderninho Digital Bot
 
-## Railway Deploy
+## 📋 Informações do Bot
 
-### 1. Criar conta no Railway
-- Acesse: https://railway.app
-- Faça login com GitHub
+- **Nome:** caderninho_digital_bot
+- **Username:** @meucomercio_bot
+- **Token:** 7921538449:AAG278ik-III5ynMuZ2zxprsC1BW0hDZGWw
 
-### 2. Fazer deploy
-```bash
-# Instalar Railway CLI
-npm install -g @railway/cli
+## 🌐 Opções de Deploy
 
-# Login
-railway login
+### 1. Railway (Recomendado)
+1. Acesse: https://railway.app
+2. Login com GitHub
+3. "New Project" → "Deploy from GitHub repo"
+4. Selecione este repositório
+5. Adicione a variável de ambiente:
+   - `TELEGRAM_BOT_TOKEN` = `7921538449:AAG278ik-III5ynMuZ2zxprsC1BW0hDZGWw`
 
-# Inicializar projeto
-railway init
+### 2. Render
+1. Acesse: https://render.com
+2. "New" → "Web Service"
+3. Conecte este repositório
+4. Configure:
+   - Build Command: `npm install`
+   - Start Command: `npm start`
+   - Environment Variables: `TELEGRAM_BOT_TOKEN`
 
-# Fazer deploy
-railway up
-```
+### 3. Heroku
+1. Acesse: https://heroku.com
+2. "New" → "Create new app"
+3. Conecte GitHub
+4. Configure variáveis de ambiente
 
-### 3. Configurar variáveis de ambiente
-No painel do Railway, adicione:
-```
-TELEGRAM_BOT_TOKEN=7921538449:AAG278ik-III5ynMuZ2zxprsC1BW0hDZGWw
-```
+## 📱 Teste
 
-### 4. Testar
-- Bot estará online 24/7
-- Teste no Telegram: @meucomercio_bot
+Após o deploy, teste no Telegram:
+1. Procure por `@meucomercio_bot`
+2. Digite `/start`
+3. Faça login com `/login email@teste.com 123456`
 
-## Comandos do Bot
+## 🔧 Comandos Disponíveis
 
-```
-/start - Menu inicial
-/login email senha - Fazer login
-/status - Ver status do login
-/saldo - Resumo financeiro
-/cliente Nome Telefone - Cadastrar cliente
-/venda Cliente Valor - Registrar venda
-```
-
-## Logs
-Para ver logs:
-```bash
-railway logs
-```
+- `/start` - Menu inicial
+- `/login email senha` - Autenticar
+- `/status` - Ver status
+- `/saldo` - Resumo financeiro
