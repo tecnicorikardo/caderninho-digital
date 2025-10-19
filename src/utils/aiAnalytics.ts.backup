@@ -1,0 +1,863 @@
+// Sistema de IA Offline para Análise de Dados Financeiros
+
+interface Transaction {
+  id: string;
+  type: 'receita' | 'despesa';
+  category: string;
+  description: string;
+  amount: number;
+  date: Date;
+  paymentMethod: string;
+  status: 'pago' | 'pendente';
+}
+
+interface Sale {
+  id: string;
+  total: number;
+  paidAmount: number;
+  paymentStatus: string;
+  paymentMethod: string;
+  createdAt: Date;
+  clientId?: string;
+  clientName?: string;
+}
+
+interface Client {
+  id: string;
+  name: string;
+  createdAt: Date;
+}
+
+interface Product {
+  id: string;
+  name: string;
+  salePrice: number;
+  costPrice: number;
+  quantity: number;
+}
+
+export interface AIInsight {
+  id: string;
+  type: 'trend' | 'warning' | 'opportunity' | 'recommendation';
+  title: string;
+  description: string;
+  impact: 'high' | 'medium' | 'low';
+  category: 'financial' | 'sales' | 'inventory' | 'customer';
+  confidence: number; // 0-100
+  actionable: boolean;
+  suggestion?: string;
+  data?: any;
+}
+
+export class AIAnalytics {
+  
+  // Nova função para análise completa do sistema
+  static generateSystemOverview(data: {
+    transactions: any[];
+    sales: any[];
+    clients: any[];
+    products: any[];
+  }): string {
+    const { transactions, sales, clients, products } = data;
+    
+    // Análise geral do negócio
+    const totalRevenue = transactions
+      .filter(t => t.type === 'receita')
+      .reduce((sum, t) => sum + t.amount, 0);
+    
+    const totalExpenses = transactions
+      .filter(t => t.type === 'despesa')
+      .reduce((sum, t) => sum + t.amount, 0);
+    
+    const profit = totalRevenue - totalExpenses;
+    const profitMargin = totalRevenue > 0 ? (profit / totalRevenue) * 100 : 0;
+    
+    const totalSalesValue = sales.reduce((sum, s) => sum + (s.total || 0), 0);
+    const avgSaleValue = sales.length > 0 ? totalSalesValue / sales.length : 0;
+    
+    const activeClients = clients.filter(c => c.status === 'ativo').length;
+    const lowStockProducts = products.filter(p => p.quantity <= (p.minStock || 5)).length;
+    
+    // Tendências temporais
+    const recentSales = sales.filter(s => {
+      const saleDate = new Date(s.date || s.createdAt);
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      return saleDate >= thirtyDaysAgo;
+    });
+    
+    const salesGrowth = this.calculateGrowthRate(sales);
+    const clientGrowth = this.calculateClientGrowthRate(clients);
+    
+    return `📊 ANÁLISE COMPLETA DO SISTEMA - ${new Date().toLocaleDateString('pt-BR')}
+
+🏢 VISÃO GERAL DO NEGÓCIO:
+• Receita Total: R$ ${totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+• Despesas Totais: R$ ${totalExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+• Lucro Líquido: R$ ${profit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${profitMargin.toFixed(1)}% margem)
+• Status Financeiro: ${profit > 0 ? '✅ LUCRATIVO' : profit === 0 ? '⚖️ EQUILIBRADO' : '❌ PREJUÍZO'}
+
+📈 PERFORMANCE DE VENDAS:
+• Total de Vendas: ${sales.length} transações
+• Valor Total Vendido: R$ ${totalSalesValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+• Ticket Médio: R$ ${avgSaleValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+• Vendas Últimos 30 dias: ${recentSales.length} (${sales.length > 0 ? ((recentSales.length / sales.length) * 100).toFixed(1) : 0}% do total)
+• Crescimento de Vendas: ${salesGrowth > 0 ? '📈' : salesGrowth < 0 ? '📉' : '➡️'} ${Math.abs(salesGrowth).toFixed(1)}%
+
+👥 BASE DE CLIENTES:
+• Total de Clientes: ${clients.length}
+• Clientes Ativos: ${activeClients} (${clients.length > 0 ? ((activeClients / clients.length) * 100).toFixed(1) : 0}%)
+• Crescimento da Base: ${clientGrowth > 0 ? '📈' : clientGrowth < 0 ? '📉' : '➡️'} ${Math.abs(clientGrowth).toFixed(1)}%
+• Taxa de Retenção: ${this.calculateRetentionRate(clients, sales).toFixed(1)}%
+
+📦 GESTÃO DE ESTOQUE:
+• Total de Produtos: ${products.length}
+• Produtos em Estoque Baixo: ${lowStockProducts} ${lowStockProducts > 0 ? '⚠️' : '✅'}
+• Valor Total do Estoque: R$ ${this.calculateInventoryValue(products).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+• Giro de Estoque: ${this.calculateInventoryTurnover(products, sales).toFixed(1)}x por período
+
+🎯 PRINCIPAIS TENDÊNCIAS IDENTIFICADAS:
+${this.identifyKeyTrends(data)}
+
+🚀 OPORTUNIDADES DE CRESCIMENTO:
+${this.identifyGrowthOpportunities(data)}
+
+⚠️ ALERTAS E RISCOS:
+${this.identifyRisks(data)}
+
+🔮 PREVISÕES PARA OS PRÓXIMOS 30 DIAS:
+${this.generatePredictions(data)}`;
+  }
+
+  static calculateGrowthRate(sales: any[]): number {
+    if (sales.length < 2) return 0;
+    
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+    
+    const recentSales = sales.filter(s => {
+      const date = new Date(s.date || s.createdAt);
+      return date >= thirtyDaysAgo;
+    }).length;
+    
+    const previousSales = sales.filter(s => {
+      const date = new Date(s.date || s.createdAt);
+      return date >= sixtyDaysAgo && date < thirtyDaysAgo;
+    }).length;
+    
+    if (previousSales === 0) return recentSales > 0 ? 100 : 0;
+    return ((recentSales - previousSales) / previousSales) * 100;
+  }
+
+  static calculateClientGrowthRate(clients: any[]): number {
+    if (clients.length < 2) return 0;
+    
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    
+    const recentClients = clients.filter(c => {
+      const createdDate = new Date(c.createdAt || c.date || now);
+      return createdDate >= thirtyDaysAgo;
+    }).length;
+    
+    const totalClients = clients.length;
+    const previousClients = totalClients - recentClients;
+    
+    if (previousClients === 0) return recentClients > 0 ? 100 : 0;
+    return (recentClients / previousClients) * 100;
+  }
+
+  static calculateRetentionRate(clients: any[], sales: any[]): number {
+    if (clients.length === 0) return 0;
+    
+    const clientsWithSales = new Set(sales.map(s => s.clientId || s.client || s.clientName));
+    const activeClients = clients.filter(c => clientsWithSales.has(c.id) || clientsWithSales.has(c.name)).length;
+    
+    return (activeClients / clients.length) * 100;
+  }
+
+  static calculateInventoryValue(products: any[]): number {
+    return products.reduce((sum, p) => sum + ((p.price || p.salePrice || 0) * (p.quantity || 0)), 0);
+  }
+
+  static calculateInventoryTurnover(products: any[], sales: any[]): number {
+    const totalInventoryValue = this.calculateInventoryValue(products);
+    const totalSalesValue = sales.reduce((sum, s) => sum + (s.total || 0), 0);
+    
+    if (totalInventoryValue === 0) return 0;
+    return totalSalesValue / totalInventoryValue;
+  }
+
+  static identifyKeyTrends(data: any): string {
+    const trends = [];
+    
+    // Análise de sazonalidade
+    const salesByMonth = this.groupSalesByMonth(data.sales);
+    const bestMonth = this.findBestPerformingMonth(salesByMonth);
+    if (bestMonth) {
+      trends.push(`• Melhor mês de vendas: ${bestMonth.month} (${bestMonth.sales} vendas)`);
+    }
+    
+    // Produtos mais vendidos
+    const topProducts = this.getTopSellingProducts(data.sales, data.products);
+    if (topProducts.length > 0) {
+      trends.push(`• Produto mais vendido: ${topProducts[0].name} (${topProducts[0].sales} vendas)`);
+    }
+    
+    // Clientes mais valiosos
+    const topClients = this.getTopClients(data.sales, data.clients);
+    if (topClients.length > 0) {
+      trends.push(`• Cliente mais valioso: ${topClients[0].name} (R$ ${topClients[0].value.toLocaleString('pt-BR')})`);
+    }
+    
+    // Tendência de crescimento
+    const growth = this.calculateGrowthRate(data.sales);
+    if (growth > 10) {
+      trends.push(`• 🚀 Crescimento acelerado de ${growth.toFixed(1)}% nas vendas`);
+    } else if (growth < -10) {
+      trends.push(`• 📉 Declínio de ${Math.abs(growth).toFixed(1)}% nas vendas - atenção necessária`);
+    }
+    
+    return trends.length > 0 ? trends.join('\n') : '• Dados insuficientes para identificar tendências claras';
+  }
+
+  static identifyGrowthOpportunities(data: any): string {
+    const opportunities = [];
+    
+    // Clientes inativos
+    const inactiveClients = data.clients.filter(c => {
+      const hasRecentSales = data.sales.some(s => {
+        const saleDate = new Date(s.date || s.createdAt);
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        return (s.clientId === c.id || s.client === c.name || s.clientName === c.name) && saleDate >= thirtyDaysAgo;
+      });
+      return !hasRecentSales;
+    });
+    
+    if (inactiveClients.length > 0) {
+      opportunities.push(`• Reativar ${inactiveClients.length} clientes inativos com campanhas direcionadas`);
+    }
+    
+    // Produtos com baixo giro
+    const lowTurnoverProducts = data.products.filter(p => {
+      const productSales = data.sales.filter(s => 
+        s.items?.some(item => item.productId === p.id) || s.product === p.name
+      ).length;
+      return productSales < 2; // Menos de 2 vendas
+    });
+    
+    if (lowTurnoverProducts.length > 0) {
+      opportunities.push(`• Promover ${lowTurnoverProducts.length} produtos com baixo giro de estoque`);
+    }
+    
+    // Análise de ticket médio
+    const avgTicket = data.sales.length > 0 ? data.sales.reduce((sum, s) => sum + (s.total || 0), 0) / data.sales.length : 0;
+    if (avgTicket < 100 && avgTicket > 0) {
+      opportunities.push(`• Aumentar ticket médio (atual: R$ ${avgTicket.toFixed(2)}) com vendas cruzadas`);
+    }
+    
+    // Margem de lucro
+    const revenue = data.transactions.filter(t => t.type === 'receita').reduce((sum, t) => sum + t.amount, 0);
+    const expenses = data.transactions.filter(t => t.type === 'despesa').reduce((sum, t) => sum + t.amount, 0);
+    const margin = revenue > 0 ? ((revenue - expenses) / revenue) * 100 : 0;
+    
+    if (margin < 20 && margin > 0) {
+      opportunities.push(`• Otimizar margem de lucro (atual: ${margin.toFixed(1)}%) reduzindo custos`);
+    }
+    
+    return opportunities.length > 0 ? opportunities.join('\n') : '• Sistema operando com boa eficiência - manter estratégias atuais';
+  }
+
+  static identifyRisks(data: any): string {
+    const risks = [];
+    
+    // Estoque baixo
+    const lowStock = data.products.filter(p => p.quantity <= (p.minStock || 5));
+    if (lowStock.length > 0) {
+      risks.push(`• ⚠️ ${lowStock.length} produtos com estoque crítico - reabastecer urgente`);
+    }
+    
+    // Concentração de clientes
+    const topClients = this.getTopClients(data.sales, data.clients);
+    if (topClients.length > 0) {
+      const topClientRevenue = topClients[0].value;
+      const totalRevenue = data.sales.reduce((sum, s) => sum + (s.total || 0), 0);
+      const concentration = totalRevenue > 0 ? (topClientRevenue / totalRevenue) * 100 : 0;
+      
+      if (concentration > 30) {
+        risks.push(`• ⚠️ Alta dependência de um cliente (${concentration.toFixed(1)}% da receita)`);
+      }
+    }
+    
+    // Fluxo de caixa
+    const recentExpenses = data.transactions
+      .filter(t => t.type === 'despesa')
+      .filter(t => {
+        const date = new Date(t.date);
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        return date >= thirtyDaysAgo;
+      })
+      .reduce((sum, t) => sum + t.amount, 0);
+    
+    const recentRevenue = data.transactions
+      .filter(t => t.type === 'receita')
+      .filter(t => {
+        const date = new Date(t.date);
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        return date >= thirtyDaysAgo;
+      })
+      .reduce((sum, t) => sum + t.amount, 0);
+    
+    if (recentExpenses > recentRevenue) {
+      risks.push(`• 🚨 Fluxo de caixa negativo nos últimos 30 dias`);
+    }
+    
+    // Vendas em declínio
+    const growth = this.calculateGrowthRate(data.sales);
+    if (growth < -15) {
+      risks.push(`• 📉 Queda significativa nas vendas (${Math.abs(growth).toFixed(1)}%)`);
+    }
+    
+    return risks.length > 0 ? risks.join('\n') : '• ✅ Nenhum risco crítico identificado no momento';
+  }
+
+  static generatePredictions(data: any): string {
+    const predictions = [];
+    
+    // Previsão de vendas
+    const avgMonthlySales = data.sales.length / Math.max(3, 1); // Assumindo 3 meses de dados
+    const growth = this.calculateGrowthRate(data.sales);
+    const predictedSales = Math.round(avgMonthlySales * (1 + growth / 100));
+    
+    predictions.push(`• Vendas previstas: ${predictedSales} transações (baseado na tendência atual)`);
+    
+    // Previsão de receita
+    const avgSaleValue = data.sales.length > 0 ? data.sales.reduce((sum, s) => sum + (s.total || 0), 0) / data.sales.length : 0;
+    const predictedRevenue = predictedSales * avgSaleValue;
+    
+    predictions.push(`• Receita estimada: R$ ${predictedRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`);
+    
+    // Produtos que precisarão de reposição
+    const productsNeedingRestock = data.products.filter(p => {
+      const monthlySales = data.sales.filter(s => 
+        s.items?.some(item => item.productId === p.id) || s.product === p.name
+      ).length;
+      const monthsUntilEmpty = (p.quantity || 0) / Math.max(monthlySales || 1, 1);
+      return monthsUntilEmpty <= 1;
+    });
+    
+    if (productsNeedingRestock.length > 0) {
+      predictions.push(`• ${productsNeedingRestock.length} produtos precisarão de reposição`);
+    }
+    
+    // Análise de sazonalidade
+    const currentMonth = new Date().getMonth();
+    const seasonalTrend = this.getSeasonalTrend(data.sales, currentMonth);
+    if (seasonalTrend) {
+      predictions.push(`• Tendência sazonal: ${seasonalTrend}`);
+    }
+    
+    return predictions.join('\n');
+  }
+
+  // Funções auxiliares
+  static groupSalesByMonth(sales: any[]): any {
+    return sales.reduce((acc, sale) => {
+      const date = new Date(sale.date || sale.createdAt);
+      const month = date.toLocaleDateString('pt-BR', { month: 'long' });
+      acc[month] = (acc[month] || 0) + 1;
+      return acc;
+    }, {});
+  }
+
+  static findBestPerformingMonth(salesByMonth: any): any {
+    const months = Object.entries(salesByMonth);
+    if (months.length === 0) return null;
+    
+    const best = months.reduce((max, [month, sales]) => 
+      sales > max.sales ? { month, sales } : max
+    , { month: '', sales: 0 });
+    
+    return best.sales > 0 ? best : null;
+  }
+
+  static getTopSellingProducts(sales: any[], products: any[]): any[] {
+    const productSales = products.map(product => {
+      const salesCount = sales.filter(sale => 
+        sale.items?.some(item => item.productId === product.id) || 
+        sale.product === product.name
+      ).length;
+      
+      return { ...product, sales: salesCount };
+    });
+    
+    return productSales
+      .filter(p => p.sales > 0)
+      .sort((a, b) => b.sales - a.sales)
+      .slice(0, 3);
+  }
+
+  static getTopClients(sales: any[], clients: any[]): any[] {
+    const clientValues = clients.map(client => {
+      const clientSales = sales.filter(sale => 
+        sale.clientId === client.id || sale.client === client.name || sale.clientName === client.name
+      );
+      
+      const totalValue = clientSales.reduce((sum, sale) => sum + (sale.total || 0), 0);
+      
+      return { ...client, value: totalValue, salesCount: clientSales.length };
+    });
+    
+    return clientValues
+      .filter(c => c.value > 0)
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 3);
+  }
+
+  static getSeasonalTrend(sales: any[], currentMonth: number): string {
+    const monthNames = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ];
+    
+    const salesByMonth = sales.reduce((acc, sale) => {
+      const month = new Date(sale.date || sale.createdAt).getMonth();
+      acc[month] = (acc[month] || 0) + 1;
+      return acc;
+    }, {});
+    
+    const currentMonthSales = salesByMonth[currentMonth] || 0;
+    const avgSales = Object.values(salesByMonth).reduce((sum: number, count: number) => sum + count, 0) / 12;
+    
+    if (currentMonthSales > avgSales * 1.2) {
+      return `${monthNames[currentMonth]} é um mês forte para vendas`;
+    } else if (currentMonthSales < avgSales * 0.8) {
+      return `${monthNames[currentMonth]} tende a ter vendas mais baixas`;
+    }
+    
+    return `${monthNames[currentMonth]} apresenta performance média`;
+  }
+
+  // Análise de Tendências Financeiras
+  static analyzeFinancialTrends(transactions: Transaction[]): AIInsight[] {
+    const insights: AIInsight[] = [];
+    
+    if (transactions.length < 3) {
+      return [{
+        id: 'insufficient_data',
+        type: 'recommendation',
+        title: 'Dados Insuficientes',
+        description: 'Adicione mais transações para obter análises mais precisas.',
+        impact: 'low',
+        category: 'financial',
+        confidence: 100,
+        actionable: true,
+        suggestion: 'Registre pelo menos 10 transações para análises detalhadas.'
+      }];
+    }
+
+    // Análise de crescimento mensal
+    const monthlyData = this.getMonthlyFinancialData(transactions);
+    const growthTrend = this.calculateGrowthTrend(monthlyData);
+    
+    if (growthTrend.isGrowing) {
+      insights.push({
+        id: 'positive_growth',
+        type: 'trend',
+        title: 'Crescimento Positivo Detectado',
+        description: `Suas receitas estão crescendo ${growthTrend.rate.toFixed(1)}% ao mês. Tendência muito positiva!`,
+        impact: 'high',
+        category: 'financial',
+        confidence: growthTrend.confidence,
+        actionable: true,
+        suggestion: 'Continue investindo nas categorias que mais crescem.',
+        data: { growthRate: growthTrend.rate, months: growthTrend.months }
+      });
+    } else if (growthTrend.rate < -10) {
+      insights.push({
+        id: 'negative_trend',
+        type: 'warning',
+        title: 'Queda nas Receitas',
+        description: `Detectada queda de ${Math.abs(growthTrend.rate).toFixed(1)}% nas receitas. Atenção necessária.`,
+        impact: 'high',
+        category: 'financial',
+        confidence: growthTrend.confidence,
+        actionable: true,
+        suggestion: 'Analise as categorias com maior queda e desenvolva estratégias de recuperação.'
+      });
+    }
+
+    // Análise de sazonalidade
+    const seasonality = this.detectSeasonality(transactions);
+    if (seasonality.hasPattern) {
+      insights.push({
+        id: 'seasonality_pattern',
+        type: 'trend',
+        title: 'Padrão Sazonal Identificado',
+        description: `Detectado padrão sazonal: ${seasonality.description}`,
+        impact: 'medium',
+        category: 'financial',
+        confidence: seasonality.confidence,
+        actionable: true,
+        suggestion: 'Planeje estratégias específicas para os períodos identificados.',
+        data: seasonality
+      });
+    }
+
+    // Análise de categorias problemáticas
+    const categoryAnalysis = this.analyzeCategoryPerformance(transactions);
+    categoryAnalysis.forEach(analysis => {
+      if (analysis.isProblematic) {
+        insights.push({
+          id: `category_${analysis.category}`,
+          type: 'warning',
+          title: `Categoria "${analysis.category}" Requer Atenção`,
+          description: analysis.description,
+          impact: analysis.impact,
+          category: 'financial',
+          confidence: analysis.confidence,
+          actionable: true,
+          suggestion: analysis.suggestion
+        });
+      }
+    });
+
+    return insights;
+  }
+
+  // Análise de Vendas e Clientes
+  static analyzeSalesPerformance(sales: Sale[], clients: Client[]): AIInsight[] {
+    const insights: AIInsight[] = [];
+
+    if (sales.length === 0) return insights;
+
+    // Análise de ticket médio
+    const avgTicket = sales.reduce((sum, sale) => sum + sale.total, 0) / sales.length;
+    const recentAvgTicket = sales.slice(-10).reduce((sum, sale) => sum + sale.total, 0) / Math.min(10, sales.length);
+    
+    if (recentAvgTicket > avgTicket * 1.2) {
+      insights.push({
+        id: 'ticket_improvement',
+        type: 'opportunity',
+        title: 'Ticket Médio em Alta',
+        description: `Seu ticket médio recente (R$ ${recentAvgTicket.toFixed(2)}) está 20% acima da média histórica.`,
+        impact: 'high',
+        category: 'sales',
+        confidence: 85,
+        actionable: true,
+        suggestion: 'Identifique o que está funcionando e replique essa estratégia.'
+      });
+    }
+
+    // Análise de inadimplência
+    const pendingSales = sales.filter(s => s.paymentStatus === 'pendente' || s.paymentStatus === 'parcial');
+    const pendingRate = (pendingSales.length / sales.length) * 100;
+    
+    if (pendingRate > 30) {
+      insights.push({
+        id: 'high_pending_rate',
+        type: 'warning',
+        title: 'Alta Taxa de Inadimplência',
+        description: `${pendingRate.toFixed(1)}% das vendas estão pendentes. Isso pode afetar o fluxo de caixa.`,
+        impact: 'high',
+        category: 'sales',
+        confidence: 90,
+        actionable: true,
+        suggestion: 'Implemente políticas de cobrança mais rigorosas e ofereça descontos para pagamento à vista.'
+      });
+    }
+
+    // Análise de clientes frequentes
+    const clientFrequency = this.analyzeClientFrequency(sales, clients);
+    if (clientFrequency.loyalClients > 0) {
+      insights.push({
+        id: 'loyal_clients',
+        type: 'opportunity',
+        title: 'Clientes Fiéis Identificados',
+        description: `${clientFrequency.loyalClients} clientes fazem compras regulares. Eles representam ${clientFrequency.loyalRevenue.toFixed(1)}% da receita.`,
+        impact: 'medium',
+        category: 'customer',
+        confidence: 80,
+        actionable: true,
+        suggestion: 'Crie um programa de fidelidade para esses clientes especiais.'
+      });
+    }
+
+    return insights;
+  }
+
+  // Análise de Estoque
+  static analyzeInventory(products: Product[], sales: Sale[]): AIInsight[] {
+    const insights: AIInsight[] = [];
+
+    if (products.length === 0) return insights;
+
+    // Produtos com estoque crítico
+    const criticalStock = products.filter(p => p.quantity <= 5 && p.quantity > 0);
+    if (criticalStock.length > 0) {
+      insights.push({
+        id: 'critical_stock',
+        type: 'warning',
+        title: 'Estoque Crítico Detectado',
+        description: `${criticalStock.length} produtos com estoque baixo. Risco de ruptura.`,
+        impact: 'high',
+        category: 'inventory',
+        confidence: 95,
+        actionable: true,
+        suggestion: 'Faça pedidos de reposição imediatamente para evitar perda de vendas.'
+      });
+    }
+
+    // Produtos sem giro
+    const slowMoving = this.identifySlowMovingProducts(products, sales);
+    if (slowMoving.length > 0) {
+      insights.push({
+        id: 'slow_moving',
+        type: 'opportunity',
+        title: 'Produtos com Baixo Giro',
+        description: `${slowMoving.length} produtos não vendem há mais de 30 dias.`,
+        impact: 'medium',
+        category: 'inventory',
+        confidence: 75,
+        actionable: true,
+        suggestion: 'Considere promoções ou reavalie a necessidade desses produtos.',
+        data: { products: slowMoving.slice(0, 5) }
+      });
+    }
+
+    // Análise de margem
+    const lowMarginProducts = products.filter(p => {
+      const margin = ((p.salePrice - p.costPrice) / p.salePrice) * 100;
+      return margin < 20 && margin > 0;
+    });
+
+    if (lowMarginProducts.length > 0) {
+      insights.push({
+        id: 'low_margin',
+        type: 'recommendation',
+        title: 'Produtos com Margem Baixa',
+        description: `${lowMarginProducts.length} produtos têm margem inferior a 20%.`,
+        impact: 'medium',
+        category: 'inventory',
+        confidence: 80,
+        actionable: true,
+        suggestion: 'Reavalie os preços ou negocie melhores condições com fornecedores.'
+      });
+    }
+
+    return insights;
+  }
+
+  // Métodos auxiliares de análise
+  private static getMonthlyFinancialData(transactions: Transaction[]) {
+    const monthlyData = new Map();
+    
+    transactions.forEach(transaction => {
+      const monthKey = `${transaction.date.getFullYear()}-${transaction.date.getMonth()}`;
+      if (!monthlyData.has(monthKey)) {
+        monthlyData.set(monthKey, { receitas: 0, despesas: 0, month: monthKey });
+      }
+      
+      const data = monthlyData.get(monthKey);
+      if (transaction.type === 'receita' && transaction.status === 'pago') {
+        data.receitas += transaction.amount;
+      } else if (transaction.type === 'despesa' && transaction.status === 'pago') {
+        data.despesas += transaction.amount;
+      }
+    });
+
+    return Array.from(monthlyData.values()).sort((a, b) => a.month.localeCompare(b.month));
+  }
+
+  private static calculateGrowthTrend(monthlyData: any[]) {
+    if (monthlyData.length < 2) {
+      return { isGrowing: false, rate: 0, confidence: 0, months: 0 };
+    }
+
+    const recentMonths = monthlyData.slice(-3);
+    const olderMonths = monthlyData.slice(-6, -3);
+
+    if (olderMonths.length === 0) {
+      return { isGrowing: false, rate: 0, confidence: 50, months: recentMonths.length };
+    }
+
+    const recentAvg = recentMonths.reduce((sum, m) => sum + m.receitas, 0) / recentMonths.length;
+    const olderAvg = olderMonths.reduce((sum, m) => sum + m.receitas, 0) / olderMonths.length;
+
+    const growthRate = olderAvg > 0 ? ((recentAvg - olderAvg) / olderAvg) * 100 : 0;
+    const confidence = Math.min(90, 50 + (monthlyData.length * 5));
+
+    return {
+      isGrowing: growthRate > 5,
+      rate: growthRate,
+      confidence,
+      months: monthlyData.length
+    };
+  }
+
+  private static detectSeasonality(transactions: Transaction[]) {
+    const monthlyPatterns = new Array(12).fill(0);
+    const monthCounts = new Array(12).fill(0);
+
+    transactions.forEach(t => {
+      if (t.type === 'receita' && t.status === 'pago') {
+        const month = t.date.getMonth();
+        monthlyPatterns[month] += t.amount;
+        monthCounts[month]++;
+      }
+    });
+
+    // Calcular médias mensais
+    const monthlyAverages = monthlyPatterns.map((total, index) => 
+      monthCounts[index] > 0 ? total / monthCounts[index] : 0
+    );
+
+    const overallAverage = monthlyAverages.reduce((sum, avg) => sum + avg, 0) / 12;
+    const variance = monthlyAverages.reduce((sum, avg) => sum + Math.pow(avg - overallAverage, 2), 0) / 12;
+    const standardDeviation = Math.sqrt(variance);
+
+    const hasPattern = standardDeviation > overallAverage * 0.3;
+
+    if (hasPattern) {
+      const peakMonth = monthlyAverages.indexOf(Math.max(...monthlyAverages));
+      const lowMonth = monthlyAverages.indexOf(Math.min(...monthlyAverages));
+      
+      const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+      
+      return {
+        hasPattern: true,
+        description: `Pico em ${months[peakMonth]}, baixa em ${months[lowMonth]}`,
+        confidence: Math.min(85, 40 + (transactions.length / 10)),
+        peakMonth,
+        lowMonth,
+        variance: standardDeviation
+      };
+    }
+
+    return { hasPattern: false, confidence: 0 };
+  }
+
+  private static analyzeCategoryPerformance(transactions: Transaction[]) {
+    const categoryStats = new Map();
+
+    transactions.forEach(t => {
+      if (!categoryStats.has(t.category)) {
+        categoryStats.set(t.category, {
+          category: t.category,
+          receitas: 0,
+          despesas: 0,
+          count: 0,
+          trend: []
+        });
+      }
+
+      const stats = categoryStats.get(t.category);
+      stats.count++;
+      
+      if (t.type === 'receita' && t.status === 'pago') {
+        stats.receitas += t.amount;
+      } else if (t.type === 'despesa' && t.status === 'pago') {
+        stats.despesas += t.amount;
+      }
+    });
+
+    return Array.from(categoryStats.values()).map(stats => {
+      const isProblematic = stats.despesas > stats.receitas * 2 && stats.despesas > 1000;
+      
+      return {
+        category: stats.category,
+        isProblematic,
+        description: isProblematic 
+          ? `Categoria com gastos elevados: R$ ${stats.despesas.toFixed(2)} em despesas vs R$ ${stats.receitas.toFixed(2)} em receitas.`
+          : `Categoria equilibrada.`,
+        impact: isProblematic ? (stats.despesas > 5000 ? 'high' : 'medium') : 'low',
+        confidence: Math.min(80, 30 + stats.count * 5),
+        suggestion: isProblematic 
+          ? 'Revise os gastos desta categoria e busque alternativas mais econômicas.'
+          : 'Continue monitorando esta categoria.'
+      };
+    });
+  }
+
+  private static analyzeClientFrequency(sales: Sale[], clients: Client[]) {
+    const clientPurchases = new Map();
+
+    sales.forEach(sale => {
+      const clientKey = sale.clientId || sale.clientName || 'sem_cliente';
+      if (!clientPurchases.has(clientKey)) {
+        clientPurchases.set(clientKey, { count: 0, total: 0, lastPurchase: sale.createdAt });
+      }
+      
+      const data = clientPurchases.get(clientKey);
+      data.count++;
+      data.total += sale.paidAmount;
+      if (sale.createdAt > data.lastPurchase) {
+        data.lastPurchase = sale.createdAt;
+      }
+    });
+
+    const loyalClients = Array.from(clientPurchases.values()).filter(client => client.count >= 3);
+    const totalRevenue = sales.reduce((sum, sale) => sum + sale.paidAmount, 0);
+    const loyalRevenue = loyalClients.reduce((sum, client) => sum + client.total, 0);
+
+    return {
+      loyalClients: loyalClients.length,
+      loyalRevenue: totalRevenue > 0 ? (loyalRevenue / totalRevenue) * 100 : 0
+    };
+  }
+
+  private static identifySlowMovingProducts(products: Product[], sales: Sale[]) {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const recentSales = sales.filter(sale => sale.createdAt >= thirtyDaysAgo);
+    const soldProducts = new Set();
+
+    recentSales.forEach(sale => {
+      // Assumindo que temos produtos na venda (seria necessário ajustar conforme estrutura real)
+      if (sale.clientName) { // placeholder - ajustar conforme estrutura real
+        soldProducts.add(sale.clientName);
+      }
+    });
+
+    return products.filter(product => !soldProducts.has(product.name) && product.quantity > 0);
+  }
+
+  // Gerador de resumo executivo com IA
+  static generateExecutiveSummary(insights: AIInsight[]): string {
+    if (insights.length === 0) {
+      return "Seus dados estão sendo analisados. Continue registrando transações para obter insights mais detalhados.";
+    }
+
+    const highImpact = insights.filter(i => i.impact === 'high');
+    const warnings = insights.filter(i => i.type === 'warning');
+    const opportunities = insights.filter(i => i.type === 'opportunity');
+
+    let summary = "📊 **Análise Inteligente dos seus Dados:**\n\n";
+
+    if (highImpact.length > 0) {
+      summary += `🎯 **Pontos de Alta Prioridade:** ${highImpact.length} itens detectados que requerem atenção imediata.\n\n`;
+    }
+
+    if (warnings.length > 0) {
+      summary += `⚠️ **Alertas:** ${warnings.length} situações que podem impactar seus resultados.\n\n`;
+    }
+
+    if (opportunities.length > 0) {
+      summary += `🚀 **Oportunidades:** ${opportunities.length} pontos de melhoria identificados.\n\n`;
+    }
+
+    const topInsight = insights.sort((a, b) => b.confidence - a.confidence)[0];
+    if (topInsight) {
+      summary += `💡 **Insight Principal:** ${topInsight.title} - ${topInsight.description}\n\n`;
+    }
+
+    summary += "📈 Continue monitorando seus dados para insights ainda mais precisos!";
+
+    return summary;
+  }
+}
