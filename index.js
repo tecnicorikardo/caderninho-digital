@@ -6,7 +6,52 @@ const token = process.env.TELEGRAM_BOT_TOKEN || '7921538449:AAG278ik-III5ynMuZ2z
 console.log('🤖 Caderninho Digital Bot iniciando...');
 console.log('🔑 Token configurado:', token ? 'SIM' : 'NÃO');
 
-const bot = new TelegramBot(token, { polling: true });
+// Usar webhook ao invés de polling para evitar conflito 409
+const express = require('express');
+const app = express();
+const port = process.env.PORT || 3000;
+
+app.use(express.json());
+
+// Criar bot SEM polling
+const bot = new TelegramBot(token, { polling: false });
+
+// Webhook endpoint
+app.post(`/bot${token}`, (req, res) => {
+  console.log('📨 Webhook recebido:', req.body);
+  bot.processUpdate(req.body);
+  res.sendStatus(200);
+});
+
+// Health check
+app.get('/', (req, res) => {
+  res.send('🤖 Caderninho Digital Bot funcionando via webhook!');
+});
+
+// Inicializar servidor
+async function startWebhook() {
+  try {
+    console.log('🧹 Limpando webhook...');
+    await bot.deleteWebHook();
+    
+    console.log('⏳ Aguardando...');
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    const botInfo = await bot.getMe();
+    console.log('🤖 Bot conectado:', botInfo.username);
+    
+    app.listen(port, () => {
+      console.log(`🚀 Servidor webhook na porta ${port}`);
+      console.log('📱 Bot pronto para receber mensagens!');
+    });
+    
+  } catch (error) {
+    console.error('❌ Erro ao iniciar webhook:', error);
+  }
+}
+
+// Iniciar webhook
+startWebhook();
 const users = new Map();
 const conversations = new Map(); // Para armazenar conversas ativas
 
@@ -422,9 +467,5 @@ function processDespesaConversation(chatId, text, conversation) {
   }
 }
 
-// Tratamento de erros
-bot.on('polling_error', (error) => {
-  console.error('❌ Polling error:', error.message);
-});
-
-console.log('🚀 Bot configurado e aguardando mensagens...');
+// Não precisa de polling_error para webhook
+console.log('🚀 Bot configurado para webhook...');
