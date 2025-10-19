@@ -331,13 +331,26 @@ async function startServer() {
     console.log('🤖 Bot conectado:', botInfo.username);
     console.log('🆔 Bot ID:', botInfo.id);
     
-    app.listen(port, () => {
+    app.listen(port, async () => {
       console.log(`🚀 Servidor rodando na porta ${port}`);
       console.log('📱 Chatbot IA pronto!');
-      console.log('🔗 Webhook URL: /webhook');
-      console.log('');
-      console.log('📋 Para configurar webhook:');
-      console.log(`curl -X POST https://api.telegram.org/bot${TELEGRAM_TOKEN}/setWebhook -d "url=https://seu-app.onrender.com/webhook"`);
+      
+      // Configurar webhook automaticamente se estiver no Render
+      const webhookUrl = process.env.RENDER_EXTERNAL_URL;
+      if (webhookUrl) {
+        try {
+          console.log('🔗 Configurando webhook automaticamente...');
+          await bot.setWebHook(`${webhookUrl}/webhook`);
+          console.log('✅ Webhook configurado:', `${webhookUrl}/webhook`);
+        } catch (error) {
+          console.error('❌ Erro ao configurar webhook:', error);
+          console.log('📋 Configure manualmente:');
+          console.log(`curl -X POST https://api.telegram.org/bot${TELEGRAM_TOKEN}/setWebhook -d "url=${webhookUrl}/webhook"`);
+        }
+      } else {
+        console.log('📋 Para configurar webhook manualmente:');
+        console.log(`curl -X POST https://api.telegram.org/bot${TELEGRAM_TOKEN}/setWebhook -d "url=https://seu-app.onrender.com/webhook"`);
+      }
     });
     
   } catch (error) {
