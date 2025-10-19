@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "deploy": "npm run build && firebase deploy --only \"hosting,firestore\"",
-    "deploy:hosting": "npm run build && firebase deploy --only hosting"
+    "deploy:hosting": "npm run build && firebase deploy --only hosting",
+    "bot": "node start-bot.js"
   },
   "dependencies": {
     "axios": "^1.12.2",
@@ -18,6 +19,7 @@
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-hot-toast": "^2.6.0",
+    "node-telegram-bot-api": "^0.66.0",
     "react-router-dom": "^7.9.1"
   },
   "devDependencies": {
