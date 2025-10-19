@@ -1,9 +1,13 @@
 services:
   - type: web
-    name: caderninho-bot
+    name: caderninho-bot-ia
     env: node
     buildCommand: npm install
-    startCommand: npm start
+    startCommand: node bot-ia.js
     envVars:
       - key: TELEGRAM_BOT_TOKEN
         value: 7921538449:AAG278ik-III5ynMuZ2zxprsC1BW0hDZGWw
+      - key: GROQ_API_KEY
+        sync: false
+      - key: SYSTEM_API_URL
+        value: https://caderninhodigital.netlify.app
