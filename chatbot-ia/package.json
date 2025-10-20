@@ -6,8 +6,9 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "webhook:setup": "node setup-webhook.js setup",
-    "webhook:info": "node setup-webhook.js info",
+    "webhook:setup": "node setup-vercel-webhook.js setup",
+    "webhook:check": "node setup-vercel-webhook.js check",
+    "test:firebase": "node test-firebase.js",
     "test": "node -e \"console.log('✅ Bot funcionando!')\""
   },
   "dependencies": {

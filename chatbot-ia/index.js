@@ -25,40 +25,78 @@ if (process.env.NODE_ENV === 'production') {
 // Inicializa o Firebase Admin SDK
 let db;
 try {
-  // Para produção, use variável de ambiente
-  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
-      projectId: FIREBASE_PROJECT_ID
-    });
-  } else {
+  console.log('🔧 Inicializando Firebase Admin SDK...');
+  
+  // Verificar se já foi inicializado (Firebase Functions)
+  if (admin.apps.length === 0) {
+    // Para produção com variável de ambiente
+    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+      console.log('🔑 Usando FIREBASE_SERVICE_ACCOUNT da variável de ambiente');
+      const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+        projectId: FIREBASE_PROJECT_ID
+      });
+    } 
+    // Para Firebase Functions (já tem credenciais)
+    else if (process.env.FUNCTIONS_EMULATOR || process.env.FUNCTION_NAME) {
+      console.log('🔥 Detectado Firebase Functions - usando credenciais padrão');
+      admin.initializeApp({
+        projectId: FIREBASE_PROJECT_ID
+      });
+    }
     // Para desenvolvimento local
-    const serviceAccount = require('./serviceAccountKey.json');
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
-      projectId: FIREBASE_PROJECT_ID
-    });
+    else {
+      console.log('💻 Ambiente local - usando serviceAccountKey.json');
+      const serviceAccount = require('./serviceAccountKey.json');
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+        projectId: FIREBASE_PROJECT_ID
+      });
+    }
+  } else {
+    console.log('♻️ Firebase Admin já inicializado');
   }
   
   db = admin.firestore();
   console.log('🔥 Firebase Admin SDK inicializado com sucesso!');
   console.log('📊 Conectado ao projeto:', FIREBASE_PROJECT_ID);
+  console.log('🌍 Ambiente:', process.env.NODE_ENV || 'development');
   
   // Testar conexão imediatamente
   db.collection('sales').limit(1).get()
     .then(snapshot => {
       console.log('✅ Teste de conexão Firebase: OK');
       console.log(`📋 Coleção sales: ${snapshot.size} documentos encontrados`);
+      
+      // Verificar se há dados reais
+      if (snapshot.size > 0) {
+        console.log('🎯 DADOS REAIS ENCONTRADOS - Sistema funcionando!');
+      } else {
+        console.log('📭 Nenhum dado encontrado - mas conexão OK');
+      }
     })
     .catch(err => {
-      console.error('❌ Erro no teste de conexão:', err.message);
+      console.error('❌ Erro no teste de conexão Firebase:', err.message);
+      console.error('🔍 Código do erro:', err.code);
+      console.log('⚠️ Verifique as credenciais do Firebase');
     });
     
 } catch (error) {
-  console.error('❌ ERRO CRÍTICO ao inicializar Firebase:', error.message);
-  console.error('🔍 Detalhes:', error);
-  console.log('⚠️  ATENÇÃO: Sistema funcionará com dados simulados!');
+  console.error('❌ ERRO CRÍTICO ao inicializar Firebase:');
+  console.error('📋 Mensagem:', error.message);
+  console.error('🔍 Stack:', error.stack);
+  
+  // Diagnóstico detalhado
+  if (error.message.includes('serviceAccountKey.json')) {
+    console.log('💡 SOLUÇÃO: Configure a variável FIREBASE_SERVICE_ACCOUNT');
+  }
+  if (error.message.includes('JSON')) {
+    console.log('💡 SOLUÇÃO: Verifique o formato do JSON na variável de ambiente');
+  }
+  
+  console.log('⚠️ ATENÇÃO: Sistema funcionará com dados simulados!');
+  console.log('🔧 Para corrigir: verifique as credenciais do Firebase');
   db = null;
 }
 
