@@ -76,12 +76,16 @@ async function getVendasData() {
   }
   
   try {
+    console.log('🔍 Buscando vendas no Firebase...');
     const vendasSnapshot = await db.collection('sales').where('userId', '==', 'ECYMxTpm46b2iNUNU0aNHIbdfTJ2').get();
+    console.log(`📊 Vendas encontradas: ${vendasSnapshot.size}`);
+    
     const vendas = vendasSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    console.log('📋 Vendas processadas:', vendas.length);
     
     const hoje = new Date().toDateString();
     const vendasHoje = vendas.filter(venda => {
-      const dataVenda = new Date(venda.data?.seconds * 1000 || venda.data).toDateString();
+      const dataVenda = new Date(venda.createdAt?.seconds * 1000 || venda.createdAt || Date.now()).toDateString();
       return dataVenda === hoje;
     });
     
@@ -596,6 +600,7 @@ async function sendMessageWithButtons(chatId, text, buttons) {
 
 async function handleVendasDetalhadas(chatId) {
   try {
+    console.log('📊 Buscando dados de vendas detalhadas...');
     const vendasData = await getVendasData();
     
     if (vendasData.simulado) {
@@ -608,7 +613,7 @@ async function handleVendasDetalhadas(chatId) {
       
       await sendMessageWithButtons(chatId, message, buttons);
     } else {
-      const message = `📊 *Relatório Detalhado de Vendas*\n\n💰 *Hoje:*\n• Faturamento: R$ ${vendasData.totalHoje}\n• Quantidade: ${vendasData.quantidadeHoje} vendas\n• Ticket médio: R$ ${vendasData.mediaHoje}\n\n📈 *Geral:*\n• Total de vendas: ${vendasData.totalVendas}\n\n🎯 *Próximos passos:*\n• Continue registrando vendas\n• Acompanhe o crescimento diário`;
+      const message = `📊 *Relatório Detalhado de Vendas*\n\n💰 *Hoje:*\n• Faturamento: R$ ${vendasData.totalToday || vendasData.totalHoje || '0.00'}\n• Quantidade: ${vendasData.countToday || vendasData.quantidadeHoje || 0} vendas\n• Ticket médio: R$ ${vendasData.averageTicket || vendasData.mediaHoje || '0.00'}\n\n📈 *Geral:*\n• Total de vendas: ${vendasData.sales?.length || vendasData.totalVendas || 0}\n\n🎯 *Status:* Dados reais do Firebase\n• UserID: ECYMxTpm46b2iNUNU0aNHIbdfTJ2`;
       
       const buttons = [
         [
