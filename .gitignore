@@ -29,3 +29,6 @@ dist-ssr
 # Environment variables (contains API keys)
 .env
 telegram-bot/.env
+
+# Pasta de bots antigos (não usar)
+telegram-bot/

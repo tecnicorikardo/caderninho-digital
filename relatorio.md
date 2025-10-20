@@ -55,7 +55,7 @@
 #### **A. Variáveis de Ambiente Render:**
 ```
 TELEGRAM_BOT_TOKEN=7921538449:AAG278ik-III5ynMuZ2zxprsC1BW0hDZGWw
-GROQ_API_KEY=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
+GROQ_API_KEY=sua_chave_groq_aqui
 FIREBASE_SERVICE_ACCOUNT=[JSON das credenciais]
 SYSTEM_API_URL=https://caderninhodigital.netlify.app
 ```

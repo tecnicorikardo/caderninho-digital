@@ -315,7 +315,7 @@ const db = admin.firestore();
 TELEGRAM_BOT_TOKEN=seu_token_aqui
 
 # IA (Groq já configurado)
-GROQ_API_KEY=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
+GROQ_API_KEY=sua_chave_groq_aqui
 
 # Firebase
 FIREBASE_PROJECT_ID=web-gestao-37a85

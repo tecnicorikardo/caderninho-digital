@@ -408,44 +408,96 @@ async function getProductsSummary(userId) {
 
 // --- Comandos do Bot Telegram ---
 
-// Comando /start
+// Comando /start - com login automático
 bot.onText(/\/start/, async (msg) => {
   const chatId = msg.chat.id;
-  const userData = userMapping.get(msg.from.id);
+  let userData = userMapping.get(msg.from.id);
   
-  let welcomeMessage = `🎉 Olá, ${msg.from.first_name}! 
-
-Bem-vindo ao *Caderninho Digital Chatbot IA*!
-
-🤖 Sou o assistente oficial do sistema Caderninho Digital.
-
-💼 *Para empresários que usam o Caderninho Digital:*`;
-
+  // Tentar login automático se não estiver autenticado
   if (!userData?.isAuthenticated) {
-    welcomeMessage += `\n\n🔐 *Como conectar sua conta:*
-1. Use /login SEU_EMAIL SENHA
-2. Ou use /usuarios para ver contas disponíveis
-3. Depois consulte seus dados empresariais!
+    console.log(`🔐 Tentando login automático para ${msg.from.first_name}...`);
+    const realUserId = 'ECYMxTpm46b2iNUNU0aNHIbdfTJ2'; // Seu userId real
+    const success = await authenticateUser(msg.from.id, realUserId);
+    
+    if (success) {
+      userData = userMapping.get(msg.from.id); // Atualizar dados após login
+      
+      const welcomeMessage = `🎉 *Olá, ${msg.from.first_name}!*
 
-📋 *Exemplo:*
-\`/login joao@empresa.com minhasenha\``;
-  } else {
-    welcomeMessage += `\n\n✅ *Você está conectado!*
-Sua conta: \`${userData.firebaseUserId}\``;
-  }
+✅ *Login automático realizado!*
+🆔 *Conectado à sua conta empresarial*
 
-  welcomeMessage += `\n\n💬 *Perguntas que posso responder:*
+🤖 *Caderninho Digital Chatbot IA*
+Seu assistente inteligente para gestão do negócio.
+
+💬 *Experimente agora:*
 • "Quanto vendi hoje?"
-• "Quais produtos estão acabando?"
-• "Quem são meus clientes devedores?"
 • "Como está meu estoque?"
-• "Resumo financeiro do mês"
+• "Quem são meus clientes?"
+• "Resumo do mês"
 
-📋 Use /ajuda para ver todos os comandos.
+🌐 *Sistema:* https://web-gestao-37a85.web.app`;
 
-🌐 *Acesse:* https://web-gestao-37a85.web.app`;
+      const buttons = [
+        [
+          { text: '📊 Ver Vendas', callback_data: 'vendas_detalhadas' },
+          { text: '👥 Ver Clientes', callback_data: 'clientes_detalhados' }
+        ],
+        [
+          { text: '📦 Ver Estoque', callback_data: 'estoque_detalhado' },
+          { text: '📈 Dashboard', callback_data: 'dashboard' }
+        ]
+      ];
+      
+      await sendMessageWithButtons(chatId, welcomeMessage, buttons);
+      return;
+    }
+  }
+  
+  // Se já está autenticado
+  if (userData?.isAuthenticated) {
+    const welcomeMessage = `👋 *Oi novamente, ${msg.from.first_name}!*
 
-  bot.sendMessage(chatId, welcomeMessage, { parse_mode: 'Markdown' });
+✅ *Você está conectado à sua conta*
+🆔 *ID:* \`${userData.firebaseUserId}\`
+
+💬 *O que gostaria de saber sobre seu negócio?*`;
+
+    const buttons = [
+      [
+        { text: '📊 Vendas', callback_data: 'vendas_detalhadas' },
+        { text: '👥 Clientes', callback_data: 'clientes_detalhados' }
+      ],
+      [
+        { text: '📦 Estoque', callback_data: 'estoque_detalhado' },
+        { text: '🔄 Trocar Conta', callback_data: 'logout_confirm' }
+      ]
+    ];
+    
+    await sendMessageWithButtons(chatId, welcomeMessage, buttons);
+    return;
+  }
+  
+  // Se não conseguiu autenticar automaticamente
+  const welcomeMessage = `🎉 *Olá, ${msg.from.first_name}!*
+
+🤖 *Caderninho Digital Chatbot IA*
+Assistente para empresários.
+
+🔐 *Para acessar seus dados empresariais:*
+
+Use o botão abaixo para login automático ou digite:
+\`/forcelogin\`
+
+🌐 *Não tem conta? Cadastre-se:*
+https://web-gestao-37a85.web.app`;
+
+  const buttons = [
+    [{ text: '🔐 Login Automático', callback_data: 'auto_login' }],
+    [{ text: '❓ Ajuda', callback_data: 'ajuda_completa' }]
+  ];
+  
+  await sendMessageWithButtons(chatId, welcomeMessage, buttons);
 });
 
 // Comando /ajuda
