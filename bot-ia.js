@@ -2,6 +2,7 @@
 const express = require('express');
 const TelegramBot = require('node-telegram-bot-api');
 const Groq = require('groq-sdk');
+const admin = require('firebase-admin');
 require('dotenv').config();
 
 const app = express();
@@ -25,12 +26,140 @@ if (!TELEGRAM_TOKEN || !GROQ_API_KEY) {
   process.exit(1);
 }
 
+// Inicializar Firebase Admin
+let db = null;
+let firebaseConnected = false;
+
+try {
+  // Configuração do Firebase usando Web SDK config
+  const firebaseConfig = {
+    apiKey: "AIzaSyBwJQ8_Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8E",
+    authDomain: "caderninho-digital-2024.firebaseapp.com",
+    projectId: "caderninho-digital-2024",
+    storageBucket: "caderninho-digital-2024.appspot.com",
+    messagingSenderId: "123456789",
+    appId: "1:123456789:web:abcdef123456"
+  };
+
+  if (!admin.apps.length) {
+    admin.initializeApp({
+      projectId: 'caderninho-digital-2024'
+    });
+  }
+  db = admin.firestore();
+  firebaseConnected = true;
+  console.log('🔥 Firebase Admin conectado');
+} catch (error) {
+  console.error('❌ Firebase não conectado:', error.message);
+  console.log('⚠️  Continuando sem Firebase - dados em tempo real não disponíveis');
+  firebaseConnected = false;
+}
+
 // Inicializar serviços
 const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: false });
 const groq = new Groq({ apiKey: GROQ_API_KEY });
 
 // Armazenamento em memória
 const users = new Map();
+
+// Funções para buscar dados reais do Firebase
+async function getVendasData() {
+  if (!firebaseConnected || !db) {
+    // Dados simulados quando Firebase não está conectado
+    return {
+      totalHoje: '0.00',
+      quantidadeHoje: 0,
+      mediaHoje: '0.00',
+      totalVendas: 0,
+      simulado: true
+    };
+  }
+  
+  try {
+    const vendasSnapshot = await db.collection('vendas').get();
+    const vendas = vendasSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+    const hoje = new Date().toDateString();
+    const vendasHoje = vendas.filter(venda => {
+      const dataVenda = new Date(venda.data?.seconds * 1000 || venda.data).toDateString();
+      return dataVenda === hoje;
+    });
+    
+    const totalHoje = vendasHoje.reduce((sum, venda) => sum + (venda.total || 0), 0);
+    const mediaHoje = vendasHoje.length > 0 ? totalHoje / vendasHoje.length : 0;
+    
+    return {
+      totalHoje: totalHoje.toFixed(2),
+      quantidadeHoje: vendasHoje.length,
+      mediaHoje: mediaHoje.toFixed(2),
+      totalVendas: vendas.length,
+      simulado: false
+    };
+  } catch (error) {
+    console.error('❌ Erro ao buscar vendas:', error);
+    return {
+      totalHoje: '0.00',
+      quantidadeHoje: 0,
+      mediaHoje: '0.00',
+      totalVendas: 0,
+      simulado: true
+    };
+  }
+}
+
+async function getClientesData() {
+  if (!firebaseConnected || !db) {
+    return { total: 0, novos: 0, ativos: 0, simulado: true };
+  }
+  
+  try {
+    const clientesSnapshot = await db.collection('clientes').get();
+    const clientes = clientesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+    const mesAtual = new Date().getMonth();
+    const anoAtual = new Date().getFullYear();
+    
+    const clientesNovos = clientes.filter(cliente => {
+      if (!cliente.dataCadastro) return false;
+      const dataCadastro = new Date(cliente.dataCadastro.seconds * 1000 || cliente.dataCadastro);
+      return dataCadastro.getMonth() === mesAtual && dataCadastro.getFullYear() === anoAtual;
+    });
+    
+    return {
+      total: clientes.length,
+      novos: clientesNovos.length,
+      ativos: clientes.filter(c => c.ativo !== false).length,
+      simulado: false
+    };
+  } catch (error) {
+    console.error('❌ Erro ao buscar clientes:', error);
+    return { total: 0, novos: 0, ativos: 0, simulado: true };
+  }
+}
+
+async function getEstoqueData() {
+  if (!firebaseConnected || !db) {
+    return { total: 0, baixoEstoque: 0, disponivel: 0, simulado: true };
+  }
+  
+  try {
+    const produtosSnapshot = await db.collection('produtos').get();
+    const produtos = produtosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+    const baixoEstoque = produtos.filter(produto => (produto.estoque || 0) < (produto.estoqueMinimo || 5));
+    const disponivel = produtos.filter(produto => (produto.estoque || 0) > 0);
+    
+    return {
+      total: produtos.length,
+      baixoEstoque: baixoEstoque.length,
+      disponivel: disponivel.length,
+      simulado: false
+    };
+  } catch (error) {
+    console.error('❌ Erro ao buscar estoque:', error);
+    return { total: 0, baixoEstoque: 0, disponivel: 0, simulado: true };
+  }
+}
 
 // Webhook endpoint
 app.post(`/webhook`, async (req, res) => {
@@ -132,20 +261,45 @@ async function handleNaturalLanguage(chatId, userId, text) {
   try {
     const user = users.get(userId);
     
-    const systemPrompt = `Você é um assistente inteligente para o sistema "Caderninho Digital", um sistema de gestão comercial.
+    // Buscar dados reais para contexto da IA
+    const vendasData = await getVendasData();
+    const clientesData = await getClientesData();
+    const estoqueData = await getEstoqueData();
+    
+    const contextData = `
+DADOS ATUAIS DO NEGÓCIO:
+- Vendas hoje: R$ ${vendasData.totalHoje} (${vendasData.quantidadeHoje} vendas)
+- Total de clientes: ${clientesData.total} (${clientesData.novos} novos este mês)
+- Produtos em estoque: ${estoqueData.total} (${estoqueData.baixoEstoque} com baixo estoque)
+- Status dos dados: ${vendasData.simulado ? 'Sem dados cadastrados' : 'Dados reais do sistema'}`;
 
-Você pode ajudar com:
-- Consultar vendas e faturamento
-- Gerenciar clientes
-- Controlar estoque
-- Gerar relatórios
-- Responder dúvidas sobre o negócio
+    const systemPrompt = `Você é um assistente inteligente especializado em gestão comercial para o "Caderninho Digital".
 
-Responda de forma amigável, profissional e objetiva. Use emojis quando apropriado.
-Se precisar de dados específicos, sugira que o usuário use o menu ou comandos.
+PERSONALIDADE:
+- Seja conversacional, amigável e proativo
+- Use emojis apropriados
+- Faça perguntas para entender melhor as necessidades
+- Ofereça insights e sugestões baseadas nos dados
+- Seja específico e prático nas respostas
 
-Usuário: ${user?.firstName || 'Usuário'}
-Sistema: Caderninho Digital`;
+CAPACIDADES:
+- Analisar vendas e faturamento
+- Gerenciar clientes e relacionamento
+- Controlar estoque e produtos
+- Gerar insights de negócio
+- Sugerir ações para melhorar resultados
+- Responder dúvidas sobre gestão comercial
+
+${contextData}
+
+INSTRUÇÕES:
+- Use os dados reais acima para dar respostas precisas
+- Se não houver dados, oriente sobre como cadastrar no sistema
+- Seja proativo: sugira ações baseadas nos dados
+- Faça perguntas para entender melhor o que o usuário precisa
+- Ofereça botões de ação quando relevante
+
+Usuário: ${user?.firstName || 'Usuário'}`;
 
     const completion = await groq.chat.completions.create({
       messages: [
@@ -153,16 +307,16 @@ Sistema: Caderninho Digital`;
         { role: 'user', content: text }
       ],
       model: 'mixtral-8x7b-32768',
-      temperature: 0.7,
-      max_tokens: 1000
+      temperature: 0.8,
+      max_tokens: 1200
     });
     
-    const aiResponse = completion.choices[0]?.message?.content || 'Desculpe, não consegui processar sua mensagem.';
+    const aiResponse = completion.choices[0]?.message?.content || 'Desculpe, não consegui processar sua mensagem. Pode reformular?';
     
     console.log('🤖 Resposta da IA gerada');
     
-    // Adicionar botões contextuais
-    const buttons = getContextButtons(text);
+    // Adicionar botões contextuais inteligentes
+    const buttons = getSmartContextButtons(text, vendasData, clientesData, estoqueData);
     
     if (buttons.length > 0) {
       await sendMessageWithButtons(chatId, aiResponse, buttons);
@@ -172,29 +326,54 @@ Sistema: Caderninho Digital`;
     
   } catch (error) {
     console.error('❌ Erro na IA:', error);
-    await sendMessage(chatId, '🤖 Desculpe, estou com dificuldades para processar sua mensagem. Tente usar /menu ou /help.');
+    await sendMessage(chatId, '🤖 Ops! Tive um problema para processar isso. Pode tentar de novo ou usar /menu para ver as opções? 😅');
   }
 }
 
-// Botões contextuais
-function getContextButtons(text) {
+// Botões contextuais inteligentes
+function getSmartContextButtons(text, vendasData, clientesData, estoqueData) {
   const buttons = [];
   const lowerText = text.toLowerCase();
   
-  if (lowerText.includes('venda') || lowerText.includes('faturamento')) {
-    buttons.push([{ text: '📊 Ver Vendas', callback_data: 'vendas' }]);
+  // Botões baseados no contexto da conversa
+  if (lowerText.includes('venda') || lowerText.includes('faturamento') || lowerText.includes('receita')) {
+    buttons.push([{ text: '📊 Ver Vendas Detalhadas', callback_data: 'vendas_detalhadas' }]);
+    if (vendasData.quantidadeHoje === 0) {
+      buttons.push([{ text: '➕ Como Registrar Venda', callback_data: 'como_vender' }]);
+    }
   }
   
-  if (lowerText.includes('cliente')) {
-    buttons.push([{ text: '👥 Clientes', callback_data: 'clientes' }]);
+  if (lowerText.includes('cliente') || lowerText.includes('consumidor')) {
+    buttons.push([{ text: '👥 Relatório de Clientes', callback_data: 'clientes_detalhados' }]);
+    if (clientesData.total === 0) {
+      buttons.push([{ text: '➕ Como Cadastrar Cliente', callback_data: 'como_cadastrar_cliente' }]);
+    }
   }
   
-  if (lowerText.includes('estoque') || lowerText.includes('produto')) {
-    buttons.push([{ text: '📦 Estoque', callback_data: 'estoque' }]);
+  if (lowerText.includes('estoque') || lowerText.includes('produto') || lowerText.includes('mercadoria')) {
+    buttons.push([{ text: '📦 Status do Estoque', callback_data: 'estoque_detalhado' }]);
+    if (estoqueData.baixoEstoque > 0) {
+      buttons.push([{ text: '⚠️ Produtos em Falta', callback_data: 'produtos_falta' }]);
+    }
   }
   
-  // Menu sempre disponível
-  buttons.push([{ text: '🏠 Menu Principal', callback_data: 'menu' }]);
+  // Sugestões inteligentes baseadas nos dados
+  if (vendasData.quantidadeHoje > 0 && clientesData.total > 0) {
+    buttons.push([{ text: '📈 Análise de Performance', callback_data: 'analise_performance' }]);
+  }
+  
+  // Botões de ação rápida
+  const quickActions = [];
+  if (vendasData.simulado) {
+    quickActions.push({ text: '🚀 Começar a Usar', callback_data: 'tutorial_inicio' });
+  } else {
+    quickActions.push({ text: '📊 Dashboard', callback_data: 'dashboard' });
+  }
+  quickActions.push({ text: '❓ Ajuda', callback_data: 'ajuda_completa' });
+  
+  if (quickActions.length > 0) {
+    buttons.push(quickActions);
+  }
   
   return buttons;
 }
@@ -215,19 +394,58 @@ async function handleCallbackQuery(callbackQuery) {
         break;
         
       case 'vendas':
-        await sendMessage(chatId, '📊 *Vendas*\n\n💰 Hoje: R$ 1.250,00\n🛒 Vendas: 8\n📈 Média: R$ 156,25\n\n_Dados simulados - integração em desenvolvimento_');
+      case 'vendas_detalhadas':
+        await handleVendasDetalhadas(chatId);
         break;
         
       case 'clientes':
-        await sendMessage(chatId, '👥 *Clientes*\n\n📋 Total: 45 clientes\n📞 Ativos: 38\n🆕 Novos este mês: 7\n\n_Dados simulados - integração em desenvolvimento_');
+      case 'clientes_detalhados':
+        await handleClientesDetalhados(chatId);
         break;
         
       case 'estoque':
-        await sendMessage(chatId, '📦 *Estoque*\n\n📱 Produtos: 156\n⚠️ Baixo estoque: 12\n✅ Disponível: 144\n\n_Dados simulados - integração em desenvolvimento_');
+      case 'estoque_detalhado':
+        await handleEstoqueDetalhado(chatId);
+        break;
+        
+      case 'como_vender':
+        await sendMessage(chatId, `📝 *Como Registrar uma Venda*\n\n1️⃣ Acesse: ${SYSTEM_API_URL}\n2️⃣ Vá em "Nova Venda"\n3️⃣ Selecione o cliente\n4️⃣ Adicione os produtos\n5️⃣ Escolha a forma de pagamento\n6️⃣ Confirme a venda\n\n✅ *Pronto!* A venda aparecerá aqui no bot automaticamente!`);
+        break;
+        
+      case 'como_cadastrar_cliente':
+        await sendMessage(chatId, `👤 *Como Cadastrar Cliente*\n\n1️⃣ Acesse: ${SYSTEM_API_URL}\n2️⃣ Vá em "Clientes"\n3️⃣ Clique em "Novo Cliente"\n4️⃣ Preencha nome e telefone\n5️⃣ Salve o cadastro\n\n✅ *Dica:* Clientes cadastrados facilitam vendas fiado e controle de pagamentos!`);
+        break;
+        
+      case 'produtos_falta':
+        await handleProdutosFalta(chatId);
+        break;
+        
+      case 'analise_performance':
+        await handleAnalisePerformance(chatId);
+        break;
+        
+      case 'dashboard':
+        await handleDashboard(chatId);
+        break;
+        
+      case 'tutorial_inicio':
+        await sendTutorialInicio(chatId);
+        break;
+        
+      case 'ajuda_completa':
+        await sendAjudaCompleta(chatId);
+        break;
+        
+      case 'como_cadastrar_produto':
+        await sendMessage(chatId, `📦 *Como Cadastrar Produtos*\n\n1️⃣ Acesse: ${SYSTEM_API_URL}\n2️⃣ Vá em "Produtos"\n3️⃣ Clique em "Novo Produto"\n4️⃣ Preencha:\n   • Nome do produto\n   • Preço de venda\n   • Quantidade em estoque\n   • Estoque mínimo (opcional)\n5️⃣ Salve o produto\n\n✅ *Dica:* Configure estoque mínimo para receber alertas automáticos!`);
+        break;
+        
+      case 'relatorios':
+        await handleDashboard(chatId);
         break;
         
       default:
-        await sendMessage(chatId, '❓ Ação não reconhecida.');
+        await sendMessage(chatId, '❓ Hmm, não reconheci essa ação. Que tal tentar o /menu? 🤔');
     }
     
   } catch (error) {
@@ -240,56 +458,95 @@ async function sendWelcomeMessage(chatId, userId) {
   const user = users.get(userId);
   const name = user?.firstName || 'Usuário';
   
-  const message = `🤖 *Olá, ${name}!*
-
-Bem-vindo ao *Caderninho Digital Chatbot IA*!
-
-Sou seu assistente inteligente powered by Groq AI. Posso te ajudar com:
-
-🛒 *Vendas e Faturamento*
-👥 *Gestão de Clientes*  
-📦 *Controle de Estoque*
-📊 *Relatórios e Análises*
-
-💬 *Converse comigo naturalmente!*
-Exemplos:
-• "Quanto vendi hoje?"
-• "Quais são meus clientes?"
-• "Como está o estoque?"
-
-Ou use o menu abaixo:`;
-
-  const buttons = [
-    [
-      { text: '📊 Vendas', callback_data: 'vendas' },
-      { text: '👥 Clientes', callback_data: 'clientes' }
-    ],
-    [
-      { text: '📦 Estoque', callback_data: 'estoque' },
-      { text: '❓ Ajuda', callback_data: 'help' }
-    ]
-  ];
+  // Verificar se é primeira vez
+  const isFirstTime = !users.has(userId + '_welcomed');
+  users.set(userId + '_welcomed', true);
+  
+  let message;
+  let buttons;
+  
+  if (isFirstTime) {
+    message = `🎉 *Olá, ${name}! Bem-vindo!*\n\nSou o *assistente IA* do Caderninho Digital! 🤖\n\n✨ *Posso te ajudar com:*\n• 📊 Análise de vendas em tempo real\n• 👥 Gestão inteligente de clientes\n• 📦 Controle automático de estoque\n• 💡 Insights para crescer seu negócio\n\n💬 *Converse naturalmente comigo!*\n"Quanto vendi hoje?"\n"Meu estoque está ok?"\n"Como conquistar mais clientes?"\n\n🚀 *Primeiro acesso? Vou te guiar!*`;
+    
+    buttons = [
+      [{ text: '🚀 Tutorial Completo', callback_data: 'tutorial_inicio' }],
+      [
+        { text: '📊 Ver Dashboard', callback_data: 'dashboard' },
+        { text: '❓ Central de Ajuda', callback_data: 'ajuda_completa' }
+      ]
+    ];
+  } else {
+    message = `👋 *Oi novamente, ${name}!*\n\nPronto para mais insights do seu negócio? 📈\n\n💬 *Me pergunte algo ou use o menu:*`;
+    
+    buttons = [
+      [
+        { text: '📊 Vendas', callback_data: 'vendas' },
+        { text: '👥 Clientes', callback_data: 'clientes' }
+      ],
+      [
+        { text: '📦 Estoque', callback_data: 'estoque' },
+        { text: '📈 Dashboard', callback_data: 'dashboard' }
+      ]
+    ];
+  }
   
   await sendMessageWithButtons(chatId, message, buttons);
 }
 
 async function sendMainMenu(chatId, userId) {
-  const message = `🏠 *Menu Principal*
+  try {
+    // Buscar dados para menu dinâmico
+    const vendasData = await getVendasData();
+    const clientesData = await getClientesData();
+    const estoqueData = await getEstoqueData();
+    
+    let statusEmoji = '🟢';
+    let statusText = 'Sistema operacional';
+    
+    if (vendasData.simulado) {
+      statusEmoji = '🟡';
+      statusText = 'Configure seus dados';
+    }
+    
+    const message = `🏠 *Menu Principal*\n\n${statusEmoji} *Status:* ${statusText}\n\n💰 *Hoje:* R$ ${vendasData.totalHoje} (${vendasData.quantidadeHoje} vendas)\n👥 *Clientes:* ${clientesData.total}\n📦 *Produtos:* ${estoqueData.total}\n\n💬 *Converse naturalmente ou use os botões:*`;
 
-Escolha uma opção ou converse comigo naturalmente:`;
-
-  const buttons = [
-    [
-      { text: '📊 Vendas', callback_data: 'vendas' },
-      { text: '👥 Clientes', callback_data: 'clientes' }
-    ],
-    [
-      { text: '📦 Estoque', callback_data: 'estoque' },
-      { text: '📈 Relatórios', callback_data: 'relatorios' }
-    ]
-  ];
-  
-  await sendMessageWithButtons(chatId, message, buttons);
+    const buttons = [
+      [
+        { text: '📊 Vendas Detalhadas', callback_data: 'vendas_detalhadas' },
+        { text: '👥 Gestão Clientes', callback_data: 'clientes_detalhados' }
+      ],
+      [
+        { text: '📦 Controle Estoque', callback_data: 'estoque_detalhado' },
+        { text: '📈 Dashboard Executivo', callback_data: 'dashboard' }
+      ]
+    ];
+    
+    // Adicionar botões condicionais
+    if (vendasData.simulado) {
+      buttons.push([{ text: '🚀 Tutorial Início', callback_data: 'tutorial_inicio' }]);
+    } else {
+      buttons.push([{ text: '📈 Análise Performance', callback_data: 'analise_performance' }]);
+    }
+    
+    buttons.push([{ text: '❓ Central de Ajuda', callback_data: 'ajuda_completa' }]);
+    
+    await sendMessageWithButtons(chatId, message, buttons);
+  } catch (error) {
+    console.error('❌ Erro no menu:', error);
+    // Fallback para menu simples
+    const message = `🏠 *Menu Principal*\n\nEscolha uma opção:`;
+    const buttons = [
+      [
+        { text: '📊 Vendas', callback_data: 'vendas' },
+        { text: '👥 Clientes', callback_data: 'clientes' }
+      ],
+      [
+        { text: '📦 Estoque', callback_data: 'estoque' },
+        { text: '❓ Ajuda', callback_data: 'ajuda_completa' }
+      ]
+    ];
+    await sendMessageWithButtons(chatId, message, buttons);
+  }
 }
 
 // Funções de envio
@@ -316,6 +573,221 @@ async function sendMessageWithButtons(chatId, text, buttons) {
   } catch (error) {
     console.error('❌ Erro ao enviar mensagem com botões:', error);
   }
+}
+
+// ========== FUNÇÕES INTERATIVAS AVANÇADAS ==========
+
+async function handleVendasDetalhadas(chatId) {
+  try {
+    const vendasData = await getVendasData();
+    
+    if (vendasData.simulado) {
+      const message = `📊 *Relatório de Vendas*\n\n❌ *Nenhuma venda registrada ainda*\n\n🚀 *Como começar:*\n• Acesse: ${SYSTEM_API_URL}\n• Registre sua primeira venda\n• Volte aqui para ver os dados!\n\n💡 *Dica:* Quanto mais vendas registrar, mais insights posso te dar!`;
+      
+      const buttons = [
+        [{ text: '➕ Como Registrar Venda', callback_data: 'como_vender' }],
+        [{ text: '🏠 Menu Principal', callback_data: 'menu' }]
+      ];
+      
+      await sendMessageWithButtons(chatId, message, buttons);
+    } else {
+      const message = `📊 *Relatório Detalhado de Vendas*\n\n💰 *Hoje:*\n• Faturamento: R$ ${vendasData.totalHoje}\n• Quantidade: ${vendasData.quantidadeHoje} vendas\n• Ticket médio: R$ ${vendasData.mediaHoje}\n\n📈 *Geral:*\n• Total de vendas: ${vendasData.totalVendas}\n\n🎯 *Próximos passos:*\n• Continue registrando vendas\n• Acompanhe o crescimento diário`;
+      
+      const buttons = [
+        [
+          { text: '📈 Análise Performance', callback_data: 'analise_performance' },
+          { text: '👥 Ver Clientes', callback_data: 'clientes' }
+        ],
+        [{ text: '🏠 Menu Principal', callback_data: 'menu' }]
+      ];
+      
+      await sendMessageWithButtons(chatId, message, buttons);
+    }
+  } catch (error) {
+    console.error('❌ Erro em vendas detalhadas:', error);
+    await sendMessage(chatId, '❌ Ops! Erro ao buscar dados de vendas. Tente novamente.');
+  }
+}
+
+async function handleClientesDetalhados(chatId) {
+  try {
+    const clientesData = await getClientesData();
+    
+    if (clientesData.simulado || clientesData.total === 0) {
+      const message = `👥 *Gestão de Clientes*\n\n❌ *Nenhum cliente cadastrado*\n\n🎯 *Por que cadastrar clientes?*\n• Vendas fiado organizadas\n• Histórico de compras\n• Controle de pagamentos\n• Relacionamento melhor\n\n🚀 *Vamos começar!*`;
+      
+      const buttons = [
+        [{ text: '➕ Como Cadastrar Cliente', callback_data: 'como_cadastrar_cliente' }],
+        [{ text: '📊 Ver Vendas', callback_data: 'vendas' }],
+        [{ text: '🏠 Menu Principal', callback_data: 'menu' }]
+      ];
+      
+      await sendMessageWithButtons(chatId, message, buttons);
+    } else {
+      const message = `👥 *Relatório de Clientes*\n\n📊 *Resumo:*\n• Total: ${clientesData.total} clientes\n• Ativos: ${clientesData.ativos}\n• Novos este mês: ${clientesData.novos}\n\n💡 *Insights:*\n${clientesData.novos > 0 ? '🎉 Parabéns! Você está conquistando novos clientes!' : '💪 Que tal uma campanha para atrair novos clientes?'}\n\n🎯 *Dicas:*\n• Mantenha contato regular\n• Ofereça promoções especiais\n• Peça indicações`;
+      
+      const buttons = [
+        [
+          { text: '📊 Ver Vendas', callback_data: 'vendas' },
+          { text: '📦 Ver Estoque', callback_data: 'estoque' }
+        ],
+        [{ text: '🏠 Menu Principal', callback_data: 'menu' }]
+      ];
+      
+      await sendMessageWithButtons(chatId, message, buttons);
+    }
+  } catch (error) {
+    console.error('❌ Erro em clientes detalhados:', error);
+    await sendMessage(chatId, '❌ Erro ao buscar dados de clientes. Tente novamente.');
+  }
+}
+
+async function handleEstoqueDetalhado(chatId) {
+  try {
+    const estoqueData = await getEstoqueData();
+    
+    if (estoqueData.simulado || estoqueData.total === 0) {
+      const message = `📦 *Controle de Estoque*\n\n❌ *Nenhum produto cadastrado*\n\n🎯 *Benefícios do controle:*\n• Evita produtos em falta\n• Controla custos\n• Otimiza compras\n• Reduz perdas\n\n🚀 *Comece agora!*`;
+      
+      const buttons = [
+        [{ text: '➕ Como Cadastrar Produtos', callback_data: 'como_cadastrar_produto' }],
+        [{ text: '📊 Ver Vendas', callback_data: 'vendas' }],
+        [{ text: '🏠 Menu Principal', callback_data: 'menu' }]
+      ];
+      
+      await sendMessageWithButtons(chatId, message, buttons);
+    } else {
+      let alertas = '';
+      if (estoqueData.baixoEstoque > 0) {
+        alertas = `\n⚠️ *ATENÇÃO:* ${estoqueData.baixoEstoque} produtos com estoque baixo!`;
+      }
+      
+      const message = `📦 *Relatório de Estoque*\n\n📊 *Status:*\n• Total de produtos: ${estoqueData.total}\n• Disponíveis: ${estoqueData.disponivel}\n• Baixo estoque: ${estoqueData.baixoEstoque}${alertas}\n\n💡 *Dicas:*\n• Monitore produtos em falta\n• Programe reposições\n• Analise giro de estoque`;
+      
+      const buttons = [];
+      if (estoqueData.baixoEstoque > 0) {
+        buttons.push([{ text: '⚠️ Ver Produtos em Falta', callback_data: 'produtos_falta' }]);
+      }
+      buttons.push([
+        { text: '📊 Ver Vendas', callback_data: 'vendas' },
+        { text: '👥 Ver Clientes', callback_data: 'clientes' }
+      ]);
+      buttons.push([{ text: '🏠 Menu Principal', callback_data: 'menu' }]);
+      
+      await sendMessageWithButtons(chatId, message, buttons);
+    }
+  } catch (error) {
+    console.error('❌ Erro em estoque detalhado:', error);
+    await sendMessage(chatId, '❌ Erro ao buscar dados de estoque. Tente novamente.');
+  }
+}
+
+async function handleProdutosFalta(chatId) {
+  const message = `⚠️ *Produtos com Estoque Baixo*\n\n🔍 *Verificando produtos...*\n\n💡 *Ações recomendadas:*\n• Reabasteça os produtos em falta\n• Configure alertas automáticos\n• Analise quais vendem mais\n\n📋 *Para ver detalhes:*\nAcesse: ${SYSTEM_API_URL}/estoque`;
+  
+  const buttons = [
+    [{ text: '📦 Voltar ao Estoque', callback_data: 'estoque' }],
+    [{ text: '🏠 Menu Principal', callback_data: 'menu' }]
+  ];
+  
+  await sendMessageWithButtons(chatId, message, buttons);
+}
+
+async function handleAnalisePerformance(chatId) {
+  try {
+    const vendasData = await getVendasData();
+    const clientesData = await getClientesData();
+    
+    if (vendasData.simulado) {
+      await sendMessage(chatId, '📈 *Análise de Performance*\n\n❌ Dados insuficientes para análise.\n\nRegistre algumas vendas primeiro!');
+      return;
+    }
+    
+    let insights = '📈 *Análise de Performance*\n\n';
+    
+    // Análise de vendas
+    if (vendasData.quantidadeHoje > 0) {
+      insights += `🎉 *Ótimo!* Você já fez ${vendasData.quantidadeHoje} vendas hoje!\n`;
+    } else {
+      insights += `💪 *Oportunidade:* Ainda não há vendas hoje. Que tal uma promoção?\n`;
+    }
+    
+    // Análise de clientes
+    if (clientesData.novos > 0) {
+      insights += `👥 *Crescimento:* ${clientesData.novos} novos clientes este mês!\n`;
+    }
+    
+    // Sugestões
+    insights += `\n💡 *Sugestões:*\n`;
+    if (vendasData.quantidadeHoje === 0) {
+      insights += `• Faça contato com clientes antigos\n• Ofereça promoções especiais\n`;
+    }
+    if (clientesData.total < 10) {
+      insights += `• Foque em conquistar novos clientes\n• Peça indicações\n`;
+    }
+    
+    const buttons = [
+      [
+        { text: '📊 Ver Vendas', callback_data: 'vendas' },
+        { text: '👥 Ver Clientes', callback_data: 'clientes' }
+      ],
+      [{ text: '🏠 Menu Principal', callback_data: 'menu' }]
+    ];
+    
+    await sendMessageWithButtons(chatId, insights, buttons);
+  } catch (error) {
+    console.error('❌ Erro na análise:', error);
+    await sendMessage(chatId, '❌ Erro ao gerar análise. Tente novamente.');
+  }
+}
+
+async function handleDashboard(chatId) {
+  try {
+    const vendasData = await getVendasData();
+    const clientesData = await getClientesData();
+    const estoqueData = await getEstoqueData();
+    
+    const message = `📊 *Dashboard Executivo*\n\n💰 *Vendas Hoje:*\n• Faturamento: R$ ${vendasData.totalHoje}\n• Quantidade: ${vendasData.quantidadeHoje}\n\n👥 *Clientes:*\n• Total: ${clientesData.total}\n• Novos este mês: ${clientesData.novos}\n\n📦 *Estoque:*\n• Produtos: ${estoqueData.total}\n• Alertas: ${estoqueData.baixoEstoque}\n\n🎯 *Status:* ${vendasData.simulado ? 'Configure o sistema' : 'Operacional'}`;
+    
+    const buttons = [
+      [
+        { text: '📈 Análise Completa', callback_data: 'analise_performance' },
+        { text: '⚠️ Alertas', callback_data: 'produtos_falta' }
+      ],
+      [{ text: '🏠 Menu Principal', callback_data: 'menu' }]
+    ];
+    
+    await sendMessageWithButtons(chatId, message, buttons);
+  } catch (error) {
+    console.error('❌ Erro no dashboard:', error);
+    await sendMessage(chatId, '❌ Erro ao carregar dashboard. Tente novamente.');
+  }
+}
+
+async function sendTutorialInicio(chatId) {
+  const message = `🚀 *Tutorial - Primeiros Passos*\n\n*Bem-vindo ao Caderninho Digital!*\n\n📋 *Passo a passo:*\n\n1️⃣ *Acesse o sistema:*\n${SYSTEM_API_URL}\n\n2️⃣ *Cadastre produtos:*\n• Nome, preço, estoque\n• Organize por categorias\n\n3️⃣ *Cadastre clientes:*\n• Nome e telefone\n• Para vendas fiado\n\n4️⃣ *Registre vendas:*\n• Selecione produtos\n• Escolha cliente\n• Defina pagamento\n\n5️⃣ *Acompanhe aqui no bot:*\n• Relatórios automáticos\n• Insights inteligentes\n\n🎯 *Pronto! Seu negócio organizado!*`;
+  
+  const buttons = [
+    [{ text: '📊 Ver Dashboard', callback_data: 'dashboard' }],
+    [{ text: '❓ Ajuda Completa', callback_data: 'ajuda_completa' }],
+    [{ text: '🏠 Menu Principal', callback_data: 'menu' }]
+  ];
+  
+  await sendMessageWithButtons(chatId, message, buttons);
+}
+
+async function sendAjudaCompleta(chatId) {
+  const message = `❓ *Central de Ajuda*\n\n🤖 *Sobre o Bot:*\n• Sou seu assistente IA\n• Analiso dados do seu negócio\n• Dou insights e sugestões\n• Respondo perguntas naturalmente\n\n💬 *Como usar:*\n• Digite perguntas normalmente\n• "Quanto vendi hoje?"\n• "Como estão os clientes?"\n• "Preciso repor estoque?"\n\n🔧 *Comandos úteis:*\n/start - Menu inicial\n/menu - Menu principal\n/help - Esta ajuda\n\n🌐 *Sistema Web:*\n${SYSTEM_API_URL}\n\n📞 *Suporte:*\nSe tiver dúvidas, me pergunte!\nEstou aqui para ajudar! 😊`;
+  
+  const buttons = [
+    [
+      { text: '🚀 Tutorial', callback_data: 'tutorial_inicio' },
+      { text: '📊 Dashboard', callback_data: 'dashboard' }
+    ],
+    [{ text: '🏠 Menu Principal', callback_data: 'menu' }]
+  ];
+  
+  await sendMessageWithButtons(chatId, message, buttons);
 }
 
 // Inicializar servidor
