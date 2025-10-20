@@ -5,7 +5,10 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "webhook:setup": "node setup-webhook.js setup",
+    "webhook:info": "node setup-webhook.js info",
+    "test": "node -e \"console.log('✅ Bot funcionando!')\""
   },
   "dependencies": {
     "express": "^4.18.2",

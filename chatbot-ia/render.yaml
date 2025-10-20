@@ -2,16 +2,17 @@ services:
   - type: web
     name: caderninho-chatbot-ia
     env: node
-    buildCommand: npm install --production
-    startCommand: npm start
+    plan: free
+    buildCommand: npm install
+    startCommand: node index.js
     envVars:
       - key: NODE_ENV
         value: production
       - key: TELEGRAM_BOT_TOKEN
-        value: 7921538449:AAG278ik-III5ynMuZ2zxprsC1BW0hDZGWw
+        sync: false
       - key: GROQ_API_KEY
         sync: false
-      - key: SYSTEM_API_URL
-        value: https://web-gestao-37a85.web.app
       - key: FIREBASE_SERVICE_ACCOUNT
         sync: false
+      - key: PORT
+        value: 10000
