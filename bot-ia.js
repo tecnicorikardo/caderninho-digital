@@ -76,7 +76,7 @@ async function getVendasData() {
   }
   
   try {
-    const vendasSnapshot = await db.collection('vendas').get();
+    const vendasSnapshot = await db.collection('sales').where('userId', '==', 'ECYMxTpm46b2iNUNU0aNHIbdfTJ2').get();
     const vendas = vendasSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     
     const hoje = new Date().toDateString();
@@ -113,7 +113,7 @@ async function getClientesData() {
   }
   
   try {
-    const clientesSnapshot = await db.collection('clientes').get();
+    const clientesSnapshot = await db.collection('clients').where('userId', '==', 'ECYMxTpm46b2iNUNU0aNHIbdfTJ2').get();
     const clientes = clientesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     
     const mesAtual = new Date().getMonth();
@@ -143,7 +143,7 @@ async function getEstoqueData() {
   }
   
   try {
-    const produtosSnapshot = await db.collection('produtos').get();
+    const produtosSnapshot = await db.collection('products').where('userId', '==', 'ECYMxTpm46b2iNUNU0aNHIbdfTJ2').get();
     const produtos = produtosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     
     const baixoEstoque = produtos.filter(produto => (produto.estoque || 0) < (produto.estoqueMinimo || 5));
@@ -436,6 +436,17 @@ async function handleCallbackQuery(callbackQuery) {
         await sendAjudaCompleta(chatId);
         break;
         
+      case 'auto_login':
+        const realUserId = 'ECYMxTpm46b2iNUNU0aNHIbdfTJ2';
+        const success = await authenticateUser(callbackQuery.from.id, realUserId);
+        
+        if (success) {
+          bot.sendMessage(chatId, `✅ *Login automático realizado!*\n\n🎉 Agora você pode consultar seus dados reais!\n\n💬 *Teste:* "Quanto vendi hoje?"`, { parse_mode: 'Markdown' });
+        } else {
+          bot.sendMessage(chatId, `❌ *Erro no login*\n\nTente: \`/forcelogin\``, { parse_mode: 'Markdown' });
+        }
+        break;
+        
       case 'como_cadastrar_produto':
         await sendMessage(chatId, `📦 *Como Cadastrar Produtos*\n\n1️⃣ Acesse: ${SYSTEM_API_URL}\n2️⃣ Vá em "Produtos"\n3️⃣ Clique em "Novo Produto"\n4️⃣ Preencha:\n   • Nome do produto\n   • Preço de venda\n   • Quantidade em estoque\n   • Estoque mínimo (opcional)\n5️⃣ Salve o produto\n\n✅ *Dica:* Configure estoque mínimo para receber alertas automáticos!`);
         break;
@@ -458,37 +469,43 @@ async function sendWelcomeMessage(chatId, userId) {
   const user = users.get(userId);
   const name = user?.firstName || 'Usuário';
   
-  // Verificar se é primeira vez
-  const isFirstTime = !users.has(userId + '_welcomed');
-  users.set(userId + '_welcomed', true);
+  // FAZER LOGIN AUTOMÁTICO COM DADOS REAIS
+  console.log(`🔐 Fazendo login automático para ${name}...`);
   
-  let message;
-  let buttons;
+  // Simular autenticação com dados reais
+  users.set(userId, {
+    ...user,
+    isAuthenticated: true,
+    firebaseUserId: 'ECYMxTpm46b2iNUNU0aNHIbdfTJ2', // Seu userId real
+    authenticatedAt: new Date()
+  });
   
-  if (isFirstTime) {
-    message = `🎉 *Olá, ${name}! Bem-vindo!*\n\nSou o *assistente IA* do Caderninho Digital! 🤖\n\n✨ *Posso te ajudar com:*\n• 📊 Análise de vendas em tempo real\n• 👥 Gestão inteligente de clientes\n• 📦 Controle automático de estoque\n• 💡 Insights para crescer seu negócio\n\n💬 *Converse naturalmente comigo!*\n"Quanto vendi hoje?"\n"Meu estoque está ok?"\n"Como conquistar mais clientes?"\n\n🚀 *Primeiro acesso? Vou te guiar!*`;
-    
-    buttons = [
-      [{ text: '🚀 Tutorial Completo', callback_data: 'tutorial_inicio' }],
-      [
-        { text: '📊 Ver Dashboard', callback_data: 'dashboard' },
-        { text: '❓ Central de Ajuda', callback_data: 'ajuda_completa' }
-      ]
-    ];
-  } else {
-    message = `👋 *Oi novamente, ${name}!*\n\nPronto para mais insights do seu negócio? 📈\n\n💬 *Me pergunte algo ou use o menu:*`;
-    
-    buttons = [
-      [
-        { text: '📊 Vendas', callback_data: 'vendas' },
-        { text: '👥 Clientes', callback_data: 'clientes' }
-      ],
-      [
-        { text: '📦 Estoque', callback_data: 'estoque' },
-        { text: '📈 Dashboard', callback_data: 'dashboard' }
-      ]
-    ];
-  }
+  const message = `🎉 *Olá, ${name}! Bem-vindo!*
+
+✅ *Login automático realizado!*
+🆔 *Conectado à sua conta empresarial*
+
+🤖 *Caderninho Digital Chatbot IA*
+Seu assistente inteligente para gestão do negócio.
+
+💬 *Experimente agora:*
+• "Quanto vendi hoje?"
+• "Como está meu estoque?"
+• "Quem são meus clientes?"
+• "Resumo do mês"
+
+🌐 *Sistema:* https://web-gestao-37a85.web.app`;
+  
+  const buttons = [
+    [
+      { text: '📊 Ver Vendas', callback_data: 'vendas_detalhadas' },
+      { text: '👥 Ver Clientes', callback_data: 'clientes_detalhados' }
+    ],
+    [
+      { text: '📦 Ver Estoque', callback_data: 'estoque_detalhado' },
+      { text: '📈 Dashboard', callback_data: 'dashboard' }
+    ]
+  ];
   
   await sendMessageWithButtons(chatId, message, buttons);
 }
