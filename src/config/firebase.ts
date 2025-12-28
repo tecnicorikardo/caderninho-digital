@@ -26,9 +26,3 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 export const functions = getFunctions(app);
-
-// API Key do Gemini (Google AI)
-export const GEMINI_API_KEY = "AIzaSyDow13AilNNv_o8MIy5e39z6InypkZWLo8";
-
-// API Key da Groq - usar variável de ambiente
-export const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY || "";
