@@ -86,114 +86,170 @@ export function Dashboard() {
       background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
       padding: isMobile ? '10px' : '20px'
     }}>
-      {/* Header responsivo */}
+      {/* Header Moderno */}
       <header style={{ 
         marginBottom: isMobile ? '1.5rem' : '2rem',
-        background: 'rgba(255, 255, 255, 0.98)',
-        backdropFilter: 'blur(20px)',
-        borderRadius: '20px',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-        border: '1px solid rgba(255, 255, 255, 0.2)',
-        overflow: 'hidden'
+        background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+        borderRadius: '24px',
+        boxShadow: '0 20px 40px rgba(0, 0, 0, 0.1), 0 8px 16px rgba(0, 0, 0, 0.06)',
+        border: '1px solid rgba(255, 255, 255, 0.8)',
+        overflow: 'hidden',
+        position: 'relative'
       }}>
+        {/* Decoração de fundo */}
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          right: 0,
+          width: '200px',
+          height: '100%',
+          background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(147, 51, 234, 0.05) 100%)',
+          borderRadius: '0 24px 24px 0'
+        }} />
+        
         {/* Container Principal */}
         <div style={{
           display: 'flex',
           flexDirection: isMobile ? 'column' : 'row',
           alignItems: isMobile ? 'flex-start' : 'center',
           justifyContent: 'space-between',
-          padding: isMobile ? '1.25rem' : '1.5rem 2rem',
-          gap: isMobile ? '1rem' : '2rem'
+          padding: isMobile ? '2rem 1.5rem' : '2.5rem 3rem',
+          gap: isMobile ? '1.5rem' : '2rem',
+          position: 'relative',
+          zIndex: 1
         }}>
-          {/* Logo e Título */}
+          {/* Seção Principal - Logo e Título */}
           <div style={{ 
             display: 'flex', 
             alignItems: 'center', 
-            gap: isMobile ? '0.75rem' : '1.5rem',
-            flex: 1,
-            width: '100%'
+            gap: isMobile ? '1rem' : '2rem',
+            flex: 1
           }}>
+            {/* Logo/Ícone */}
+            <div style={{
+              width: isMobile ? '60px' : '80px',
+              height: isMobile ? '60px' : '80px',
+              background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
+              borderRadius: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: isMobile ? '2rem' : '2.5rem',
+              boxShadow: '0 12px 24px rgba(59, 130, 246, 0.3)',
+              flexShrink: 0
+            }}>
+              📱
+            </div>
+            
             {/* Textos */}
             <div style={{ flex: 1 }}>
               <h1 style={{ 
                 margin: 0, 
-                fontSize: isMobile ? '1.5rem' : '1.8rem',
-                background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)',
+                fontSize: isMobile ? '1.8rem' : '2.5rem',
+                background: 'linear-gradient(135deg, #1e40af 0%, #7c3aed 100%)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
-                fontWeight: 'bold',
-                lineHeight: 1.2
+                fontWeight: '800',
+                lineHeight: 1.1,
+                letterSpacing: '-0.02em'
               }}>
-                Bem-vindo ao<br />Caderninho Digital
+                Caderninho Digital
               </h1>
               <p style={{ 
-                margin: '0.25rem 0 0 0', 
-                color: '#666', 
-                fontSize: isMobile ? '0.9rem' : '0.95rem',
+                margin: '0.5rem 0 0 0', 
+                color: '#64748b', 
+                fontSize: isMobile ? '1rem' : '1.1rem',
+                fontWeight: '500',
                 lineHeight: 1.4
               }}>
                 Sua gestão empresarial simplificada
               </p>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '1rem',
+                marginTop: '0.75rem'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.25rem 0.75rem',
+                  background: 'rgba(34, 197, 94, 0.1)',
+                  borderRadius: '20px',
+                  fontSize: '0.85rem',
+                  color: '#16a34a',
+                  fontWeight: '600'
+                }}>
+                  <div style={{
+                    width: '8px',
+                    height: '8px',
+                    background: '#22c55e',
+                    borderRadius: '50%'
+                  }} />
+                  Sistema Online
+                </div>
+              </div>
             </div>
           </div>
           
-          {/* Área do Usuário */}
+          {/* Seção do Usuário */}
           <div style={{ 
             display: 'flex', 
-            flexDirection: 'row',
             alignItems: 'center', 
-            gap: '0.75rem',
-            width: '100%',
-            marginTop: isMobile ? '0.5rem' : '0'
+            gap: '1rem',
+            width: isMobile ? '100%' : 'auto'
           }}>
-            {/* Card do Usuário */}
+            {/* Card do Usuário Melhorado */}
             <div style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '0.75rem',
-              padding: '0.75rem 1rem',
-              background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
-              borderRadius: '12px',
+              gap: '1rem',
+              padding: '1rem 1.5rem',
+              background: 'linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)',
+              borderRadius: '16px',
               border: '1px solid #e2e8f0',
-              flex: 1,
-              justifyContent: 'flex-start'
+              flex: isMobile ? 1 : 'none',
+              minWidth: isMobile ? 'auto' : '200px',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)'
             }}>
-              {/* Avatar */}
+              {/* Avatar Melhorado */}
               <div style={{
-                width: '36px',
-                height: '36px',
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                borderRadius: '50%',
+                width: '48px',
+                height: '48px',
+                background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                borderRadius: '14px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: '1.1rem',
-                boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
+                fontSize: '1.4rem',
+                boxShadow: '0 8px 16px rgba(99, 102, 241, 0.3)',
                 flexShrink: 0,
                 color: 'white'
               }}>
-                👤
+                👨‍💼
               </div>
               
               {/* Info do Usuário */}
               <div style={{ 
                 textAlign: 'left',
-                overflow: 'hidden'
+                overflow: 'hidden',
+                flex: 1
               }}>
                 <div style={{ 
-                  fontSize: '0.7rem', 
-                  color: '#666',
+                  fontSize: '0.75rem', 
+                  color: '#64748b',
                   textTransform: 'uppercase',
                   letterSpacing: '0.5px',
-                  fontWeight: '600'
+                  fontWeight: '600',
+                  marginBottom: '0.25rem'
                 }}>
-                  Olá,
+                  Bem-vindo
                 </div>
                 <div style={{ 
-                  fontWeight: 'bold', 
-                  color: '#1a1d23',
-                  fontSize: '0.9rem',
-                  marginTop: '0.1rem',
+                  fontWeight: '700', 
+                  color: '#1e293b',
+                  fontSize: '1rem',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis'
@@ -203,15 +259,15 @@ export function Dashboard() {
               </div>
             </div>
             
-            {/* Botão de Sair */}
+            {/* Botão de Sair Melhorado */}
             <button
               onClick={handleLogout}
               style={{
-                padding: '0.75rem',
-                background: '#fee2e2',
+                padding: '1rem',
+                background: 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)',
                 color: '#dc2626',
                 border: 'none',
-                borderRadius: '12px',
+                borderRadius: '16px',
                 cursor: 'pointer',
                 fontWeight: '600',
                 fontSize: '1.2rem',
@@ -219,8 +275,21 @@ export function Dashboard() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                width: '48px',
-                height: '48px'
+                width: '56px',
+                height: '56px',
+                boxShadow: '0 4px 12px rgba(220, 38, 38, 0.2)'
+              }}
+              onMouseOver={(e) => {
+                if (!isMobile) {
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 8px 20px rgba(220, 38, 38, 0.3)';
+                }
+              }}
+              onMouseOut={(e) => {
+                if (!isMobile) {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(220, 38, 38, 0.2)';
+                }
               }}
             >
               🚪
