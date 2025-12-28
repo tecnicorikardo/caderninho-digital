@@ -21,18 +21,24 @@ export class MobileEmailService {
   static async sendEmail(options: MobileEmailOptions): Promise<{ success: boolean; message: string }> {
     const { to, subject, reportType, reportData } = options;
     
+    console.log('📧 MobileEmailService.sendEmail iniciado');
+    console.log('📊 Opções:', { to, subject, reportType, platform: Capacitor.getPlatform() });
+    
     try {
       if (Capacitor.isNativePlatform()) {
+        console.log('📱 Usando método nativo (mobile)');
         // MOBILE: Usar app nativo de email
         return await this.sendViaNativeApp(options);
       } else {
-        // WEB: Tentar Cloud Functions primeiro, depois fallback
+        console.log('🌐 Usando método web');
+        // WEB: Usar mailto direto
         return await this.sendViaWeb(options);
       }
     } catch (error) {
-      console.error('Erro ao enviar email:', error);
+      console.error('❌ Erro geral ao enviar email:', error);
       
       // FALLBACK FINAL: Copiar para clipboard
+      console.log('📋 Usando fallback: copiar para clipboard');
       return await this.copyToClipboard(options);
     }
   }
@@ -79,28 +85,20 @@ export class MobileEmailService {
   }
 
   /**
-   * Envia via web (Cloud Functions + fallbacks)
+   * Envia via web (mailto direto)
    */
   private static async sendViaWeb(options: MobileEmailOptions): Promise<{ success: boolean; message: string }> {
     try {
-      // Tentar Cloud Functions primeiro
-      const result = await sendReportByEmail({
-        to: options.to,
-        subject: options.subject,
-        reportType: options.reportType,
-        reportData: options.reportData
-      });
+      console.log('🌐 Enviando via web usando mailto...');
       
-      return {
-        success: true,
-        message: 'Email enviado com sucesso via servidor!'
-      };
+      // Usar mailto diretamente (mais confiável)
+      return await this.sendViaMailto(options);
       
     } catch (error) {
-      console.error('Cloud Functions falharam:', error);
+      console.error('Erro no envio web:', error);
       
-      // Fallback: mailto
-      return await this.sendViaMailto(options);
+      // Fallback: copiar para clipboard
+      return await this.copyToClipboard(options);
     }
   }
 
@@ -111,23 +109,46 @@ export class MobileEmailService {
     const { to, subject, reportType, reportData } = options;
     
     try {
+      console.log('📧 Abrindo cliente de email via mailto...');
+      
       const emailBody = this.generateTextReport(reportType, reportData);
-      const encodedBody = encodeURIComponent(emailBody);
+      
+      // Limitar o tamanho do corpo do email (alguns clientes têm limite)
+      const maxBodyLength = 2000;
+      const truncatedBody = emailBody.length > maxBodyLength 
+        ? emailBody.substring(0, maxBodyLength) + '\n\n... (relatório truncado devido ao tamanho)'
+        : emailBody;
+      
+      const encodedBody = encodeURIComponent(truncatedBody);
       const encodedSubject = encodeURIComponent(subject);
       
       const mailtoUrl = `mailto:${to}?subject=${encodedSubject}&body=${encodedBody}`;
       
-      // Abrir cliente de email
-      window.open(mailtoUrl, '_blank');
+      console.log('📧 URL mailto gerada:', mailtoUrl.substring(0, 100) + '...');
+      
+      // Tentar abrir o cliente de email
+      const link = document.createElement('a');
+      link.href = mailtoUrl;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Alternativa: usar window.open
+      // window.open(mailtoUrl, '_blank');
+      
+      console.log('✅ Cliente de email aberto com sucesso!');
       
       return {
         success: true,
-        message: 'Cliente de email aberto! Complete o envio.'
+        message: 'Cliente de email aberto! Complete o envio manualmente.'
       };
       
     } catch (error) {
-      console.error('Erro no mailto:', error);
-      throw error;
+      console.error('❌ Erro no mailto:', error);
+      
+      // Se mailto falhar, copiar para clipboard
+      return await this.copyToClipboard(options);
     }
   }
 
