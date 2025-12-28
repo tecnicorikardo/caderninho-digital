@@ -175,19 +175,19 @@ export function Dashboard() {
                   alignItems: 'center',
                   gap: '0.5rem',
                   padding: '0.25rem 0.75rem',
-                  background: 'rgba(34, 197, 94, 0.1)',
+                  background: 'rgba(59, 130, 246, 0.1)',
                   borderRadius: '20px',
                   fontSize: '0.85rem',
-                  color: '#16a34a',
+                  color: '#3b82f6',
                   fontWeight: '600'
                 }}>
                   <div style={{
                     width: '8px',
                     height: '8px',
-                    background: '#22c55e',
+                    background: '#3b82f6',
                     borderRadius: '50%'
                   }} />
-                  Sistema Online
+                  Plano Gratuito
                 </div>
               </div>
             </div>
@@ -298,9 +298,6 @@ export function Dashboard() {
         </div>
       </header>
       
-      {/* Status da Assinatura */}
-      <SubscriptionStatus />
-
       {/* Botões de Teste - Remover em produção */}
       {process.env.NODE_ENV === 'development' && (
         <div style={{
