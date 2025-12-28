@@ -1,7 +1,10 @@
 import { useState } from 'react';
-import { Sale } from '../../types/sale';
-import { Client } from '../../types/client';
+import type { Sale } from '../../types/sale';
+import type { Client } from '../../types/client';
 import { PaymentModal } from './PaymentModal';
+import { saleService } from '../../services/saleService';
+import { useAuth } from '../../contexts/AuthContext';
+import toast from 'react-hot-toast';
 
 interface SaleListProps {
   sales: Sale[];
@@ -11,6 +14,7 @@ interface SaleListProps {
 }
 
 export function SaleList({ sales, clients, onDelete, onPaymentUpdate }: SaleListProps) {
+  const { user } = useAuth();
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
 
@@ -50,6 +54,23 @@ export function SaleList({ sales, clients, onDelete, onPaymentUpdate }: SaleList
     setShowPaymentModal(false);
     setSelectedSale(null);
     onPaymentUpdate();
+  };
+
+  const handleDeleteSale = async (saleId: string) => {
+    // Confirmar exclusão
+    const confirmed = window.confirm('Tem certeza que deseja excluir esta venda? Esta ação não pode ser desfeita.');
+    if (!confirmed) return;
+
+    try {
+      // ✅ Usar função completa do serviço que reverte estoque e remove transações
+      await saleService.deleteSaleComplete(saleId, user?.uid || '');
+      
+      toast.success('Venda excluída com sucesso!');
+      onDelete(saleId);
+    } catch (error) {
+      console.error('Erro ao excluir venda:', error);
+      toast.error('Erro ao excluir venda');
+    }
   };
 
   if (sales.length === 0) {
@@ -245,7 +266,7 @@ export function SaleList({ sales, clients, onDelete, onPaymentUpdate }: SaleList
               )}
               
               <button
-                onClick={() => onDelete(sale.id)}
+                onClick={() => handleDeleteSale(sale.id)}
                 style={{
                   padding: '0.5rem 1rem',
                   backgroundColor: '#dc3545',
@@ -254,6 +275,12 @@ export function SaleList({ sales, clients, onDelete, onPaymentUpdate }: SaleList
                   borderRadius: '6px',
                   cursor: 'pointer',
                   fontSize: '0.9rem'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#c82333';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#dc3545';
                 }}
               >
                 🗑️ Excluir

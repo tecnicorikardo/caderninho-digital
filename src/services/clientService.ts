@@ -51,6 +51,9 @@ export const clientService = {
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now()
       });
+      
+      console.log('✅ Cliente criado:', docRef.id);
+      
       return docRef.id;
     } catch (error) {
       console.error('Erro ao criar cliente:', error);

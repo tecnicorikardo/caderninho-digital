@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Finanças Pessoais</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .result { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        #results { margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Teste de Finanças Pessoais</h1>
+    
+    <div>
+        <label>User ID para teste:</label>
+        <input type="text" id="userId" placeholder="Cole aqui o ID do usuário" style="width: 300px; padding: 5px;">
+    </div>
+    
+    <div style="margin: 20px 0;">
+        <button onclick="testConnection()">1. Testar Conexão Firebase</button>
+        <button onclick="listAllTransactions()">2. Listar Todas as Transações</button>
+        <button onclick="listCategories()">3. Listar Categorias</button>
+        <button onclick="createTestTransaction()">4. Criar Transação de Teste</button>
+        <button onclick="testMonthlyReport()">5. Testar Relatório Mensal</button>
+        <button onclick="clearResults()">Limpar Resultados</button>
+    </div>
+    
+    <div id="results"></div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { 
+            getFirestore, 
+            collection, 
+            getDocs, 
+            addDoc,
+            query, 
+            where,
+            Timestamp 
+        } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        // Configuração do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyCSgstRe719NjNr0AIHkApOzOvBm-kv1go",
+            authDomain: "web-gestao-37a85.firebaseapp.com",
+            projectId: "web-gestao-37a85",
+            storageBucket: "web-gestao-37a85.appspot.com",
+            messagingSenderId: "360273086290",
+            appId: "1:360273086290:web:0f47316af2dbd156039c8b"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        function addResult(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${message}`;
+            results.appendChild(div);
+            results.scrollTop = results.scrollHeight;
+        }
+
+        window.testConnection = async function() {
+            try {
+                addResult('🔄 Testando conexão com Firebase...', 'info');
+                
+                // Tentar uma consulta simples
+                const testQuery = query(collection(db, 'personal_transactions'));
+                const snapshot = await getDocs(testQuery);
+                
+                addResult(`✅ Conexão OK! Total de documentos na coleção: ${snapshot.size}`, 'success');
+            } catch (error) {
+                addResult(`❌ Erro na conexão: ${error.message}`, 'error');
+                console.error(error);
+            }
+        };
+
+        window.listAllTransactions = async function() {
+            const userId = document.getElementById('userId').value.trim();
+            if (!userId) {
+                addResult('❌ Por favor, insira um User ID', 'error');
+                return;
+            }
+
+            try {
+                addResult(`🔄 Buscando transações para userId: ${userId}`, 'info');
+                
+                const q = query(
+                    collection(db, 'personal_transactions'),
+                    where('userId', '==', userId)
+                );
+                
+                const snapshot = await getDocs(q);
+                addResult(`📊 Encontradas ${snapshot.size} transações`, 'info');
+                
+                if (snapshot.size === 0) {
+                    addResult('ℹ️ Nenhuma transação encontrada para este usuário', 'info');
+                    return;
+                }
+                
+                snapshot.forEach((doc, index) => {
+                    const data = doc.data();
+                    const date = data.date?.toDate?.() || new Date(data.date);
+                    addResult(`${index + 1}. ${data.type} - ${data.category} - R$ ${data.amount} - ${data.description} (${date.toLocaleDateString()})`, 'success');
+                });
+                
+            } catch (error) {
+                addResult(`❌ Erro ao buscar transações: ${error.message}`, 'error');
+                console.error(error);
+            }
+        };
+
+        window.listCategories = async function() {
+            const userId = document.getElementById('userId').value.trim();
+            if (!userId) {
+                addResult('❌ Por favor, insira um User ID', 'error');
+                return;
+            }
+
+            try {
+                addResult(`🔄 Buscando categorias para userId: ${userId}`, 'info');
+                
+                const q = query(
+                    collection(db, 'personal_categories'),
+                    where('userId', '==', userId)
+                );
+                
+                const snapshot = await getDocs(q);
+                addResult(`📂 Encontradas ${snapshot.size} categorias`, 'info');
+                
+                if (snapshot.size === 0) {
+                    addResult('ℹ️ Nenhuma categoria encontrada para este usuário', 'info');
+                    return;
+                }
+                
+                snapshot.forEach((doc, index) => {
+                    const data = doc.data();
+                    addResult(`${index + 1}. ${data.icon} ${data.name} (${data.type})`, 'success');
+                });
+                
+            } catch (error) {
+                addResult(`❌ Erro ao buscar categorias: ${error.message}`, 'error');
+                console.error(error);
+            }
+        };
+
+        window.createTestTransaction = async function() {
+            const userId = document.getElementById('userId').value.trim();
+            if (!userId) {
+                addResult('❌ Por favor, insira um User ID', 'error');
+                return;
+            }
+
+            try {
+                addResult('🔄 Criando transação de teste...', 'info');
+                
+                const testTransaction = {
+                    userId: userId,
+                    type: 'despesa',
+                    category: 'Teste',
+                    description: 'Transação de teste - ' + new Date().toLocaleString(),
+                    amount: 50.00,
+                    date: Timestamp.now(),
+                    paymentMethod: 'dinheiro',
+                    isRecurring: false,
+                    createdAt: Timestamp.now(),
+                    updatedAt: Timestamp.now()
+                };
+                
+                const docRef = await addDoc(collection(db, 'personal_transactions'), testTransaction);
+                addResult(`✅ Transação de teste criada com ID: ${docRef.id}`, 'success');
+                
+            } catch (error) {
+                addResult(`❌ Erro ao criar transação: ${error.message}`, 'error');
+                console.error(error);
+            }
+        };
+
+        window.testMonthlyReport = async function() {
+            const userId = document.getElementById('userId').value.trim();
+            if (!userId) {
+                addResult('❌ Por favor, insira um User ID', 'error');
+                return;
+            }
+
+            try {
+                addResult('🔄 Gerando relatório mensal...', 'info');
+                
+                const now = new Date();
+                const currentMonth = now.getMonth() + 1;
+                const currentYear = now.getFullYear();
+                
+                const startDate = new Date(currentYear, currentMonth - 1, 1);
+                const endDate = new Date(currentYear, currentMonth, 0, 23, 59, 59);
+                
+                addResult(`📅 Período: ${startDate.toLocaleDateString()} até ${endDate.toLocaleDateString()}`, 'info');
+                
+                // Buscar todas as transações do usuário
+                const q = query(
+                    collection(db, 'personal_transactions'),
+                    where('userId', '==', userId)
+                );
+                
+                const snapshot = await getDocs(q);
+                addResult(`📊 Total de transações do usuário: ${snapshot.size}`, 'info');
+                
+                // Filtrar por período
+                const transactions = [];
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    const transDate = data.date?.toDate?.() || new Date(data.date);
+                    
+                    if (transDate >= startDate && transDate <= endDate) {
+                        transactions.push({
+                            id: doc.id,
+                            ...data,
+                            date: transDate
+                        });
+                    }
+                });
+                
+                addResult(`📊 Transações no período: ${transactions.length}`, 'info');
+                
+                const totalReceitas = transactions
+                    .filter(t => t.type === 'receita')
+                    .reduce((sum, t) => sum + (t.amount || 0), 0);
+                    
+                const totalDespesas = transactions
+                    .filter(t => t.type === 'despesa')
+                    .reduce((sum, t) => sum + (t.amount || 0), 0);
+                
+                const saldo = totalReceitas - totalDespesas;
+                
+                addResult(`💵 Total Receitas: R$ ${totalReceitas.toFixed(2)}`, 'success');
+                addResult(`💸 Total Despesas: R$ ${totalDespesas.toFixed(2)}`, 'success');
+                addResult(`💰 Saldo: R$ ${saldo.toFixed(2)}`, saldo >= 0 ? 'success' : 'error');
+                
+                // Despesas por categoria
+                const despesasPorCategoria = {};
+                transactions
+                    .filter(t => t.type === 'despesa')
+                    .forEach(t => {
+                        despesasPorCategoria[t.category] = (despesasPorCategoria[t.category] || 0) + t.amount;
+                    });
+                
+                if (Object.keys(despesasPorCategoria).length > 0) {
+                    addResult('📊 Despesas por categoria:', 'info');
+                    Object.entries(despesasPorCategoria).forEach(([category, amount]) => {
+                        addResult(`   - ${category}: R$ ${amount.toFixed(2)}`, 'info');
+                    });
+                }
+                
+            } catch (error) {
+                addResult(`❌ Erro ao gerar relatório: ${error.message}`, 'error');
+                console.error(error);
+            }
+        };
+
+        window.clearResults = function() {
+            document.getElementById('results').innerHTML = '';
+        };
+    </script>
+</body>
+</html>

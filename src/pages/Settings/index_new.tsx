@@ -220,7 +220,7 @@ export function Settings() {
       firebaseData.sales = salesSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      }));
+      })) as any;
 
       // Buscar clientes do Firebase
       const clientsQuery = query(
@@ -231,10 +231,10 @@ export function Settings() {
       firebaseData.clients = clientsSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      }));
+      })) as any;
 
       // Buscar pagamentos relacionados às vendas do usuário
-      const saleIds = firebaseData.sales.map(sale => sale.id);
+      const saleIds = firebaseData.sales.map((sale: any) => sale.id);
       if (saleIds.length > 0) {
         const paymentsSnapshot = await getDocs(collection(db, 'payments'));
         firebaseData.payments = paymentsSnapshot.docs
@@ -242,7 +242,7 @@ export function Settings() {
           .map(doc => ({
             id: doc.id,
             ...doc.data()
-          }));
+          })) as any;
       }
 
       const completeData = {

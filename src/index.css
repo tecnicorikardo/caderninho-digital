@@ -24,9 +24,12 @@ a:hover {
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
   min-width: 320px;
+  min-height: 100vh;
+}
+
+#root {
+  width: 100%;
   min-height: 100vh;
 }
 
@@ -35,6 +38,7 @@ h1 {
   line-height: 1.1;
 }
 
+/* Base button styles - can be overridden by classes below */
 button {
   border-radius: 8px;
   border: 1px solid transparent;
@@ -44,7 +48,7 @@ button {
   font-family: inherit;
   background-color: #1a1a1a;
   cursor: pointer;
-  transition: border-color 0.25s;
+  transition: border-color 0.25s, transform 0.1s;
 }
 button:hover {
   border-color: #646cff;
@@ -65,4 +69,133 @@ button:focus-visible {
   button {
     background-color: #f9f9f9;
   }
+}
+
+/* === Button System (Used by MobileButton) === */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+  cursor: pointer;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  line-height: 1.2;
+}
+
+.btn-mobile {
+  width: 100%;
+  padding: 1rem;
+  font-size: 1.1rem;
+  border-radius: 12px;
+  display: flex !important; /* Importante para flex layout */
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.5rem;
+}
+
+/* Variants - Desktop */
+.btn-primary { background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); color: white; border: none; }
+.btn-success { background: linear-gradient(135deg, #28a745 0%, #218838 100%); color: white; border: none; }
+.btn-danger { background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); color: white; border: none; }
+.btn-warning { background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%); color: #212529; border: none; }
+.btn-secondary { background-color: #6c757d; color: white; border: none; }
+.btn-outline { background-color: transparent; border: 1px solid currentColor; }
+
+.btn-primary:hover { box-shadow: 0 4px 12px rgba(0,123,255,0.3); transform: translateY(-1px); }
+.btn-success:hover { box-shadow: 0 4px 12px rgba(40,167,69,0.3); transform: translateY(-1px); }
+.btn-danger:hover { box-shadow: 0 4px 12px rgba(220,53,69,0.3); transform: translateY(-1px); }
+.btn-warning:hover { box-shadow: 0 4px 12px rgba(255,193,7,0.3); transform: translateY(-1px); }
+
+/* Variants - Mobile */
+.btn-mobile-primary { background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); color: white; border: none; }
+.btn-mobile-success { background: linear-gradient(135deg, #28a745 0%, #218838 100%); color: white; border: none; }
+.btn-mobile-danger { background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); color: white; border: none; }
+.btn-mobile-warning { background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%); color: #212529; border: none; }
+.btn-mobile-secondary { background-color: #6c757d; color: white; border: none; }
+.btn-mobile-outline { background-color: transparent; border: 1px solid currentColor; }
+
+/* Sizes */
+.btn-sm { padding: 0.4em 0.8em; font-size: 0.875rem; }
+.btn-lg { padding: 0.8em 1.6em; font-size: 1.25rem; }
+.btn-mobile-sm { padding: 0.75rem; font-size: 0.9rem; }
+
+/* Utility */
+.btn-group-mobile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+/* Estilos profissionais para Fiados */
+.fiado-card {
+  transition: all 0.2s ease;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  background: white;
+}
+
+.fiado-card:hover {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+  border-color: #cbd5e0;
+}
+
+.fiado-overdue {
+  border-left: 4px solid #e53e3e !important;
+  background: #fff5f5;
+}
+
+.fiado-overdue:hover {
+  box-shadow: 0 4px 6px rgba(229, 62, 62, 0.1);
+}
+
+.payment-button {
+  background: #38a169;
+  border: none;
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.payment-button:hover {
+  background: #48bb78;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.payment-button:active {
+  transform: scale(0.98);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Animações sutis para cards */
+.success-card {
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Cards com elevação sutil */
+.elevated-card {
+  background: white;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { AIAnalytics, AIInsight } from '../utils/aiAnalytics';
+import { AIAnalytics } from '../utils/aiAnalytics';
+import type { AIInsight } from '../utils/aiAnalytics';
 
 interface AIInsightsProps {
   transactions?: any[];

@@ -100,7 +100,7 @@ export function usePayment() {
     
     const paymentInfo = localStorage.getItem(`payment_${referenceId}`);
     if (paymentInfo) {
-      const payment = JSON.parse(paymentInfo);
+      // const payment = JSON.parse(paymentInfo); // Não utilizado no momento
       
       // Simular ativação da assinatura
       toast.success('🎉 Pagamento aprovado! Bem-vindo ao Premium!');

@@ -15,7 +15,7 @@ export function ExecutiveSummary({ data, reportData }: ExecutiveSummaryProps) {
   const [activeView, setActiveView] = useState<'summary' | 'detailed'>('summary');
 
   const generateExecutiveSummary = () => {
-    const { transactions, sales, clients, products } = data;
+    const { sales, clients, products } = data;
     
     // Análise de performance
     const totalRevenue = reportData.totalRevenue || 0;

@@ -1,4 +1,5 @@
-import { useState, FormEvent, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import type { FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { sendPasswordResetEmail } from 'firebase/auth';
@@ -121,6 +122,20 @@ export function Login() {
         maxWidth: '420px'
       }}>
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+          {/* Logo do App */}
+          <div style={{ marginBottom: '1.5rem' }}>
+            <img 
+              src="/icon-192.png" 
+              alt="Caderninho Digital" 
+              style={{ 
+                width: '100px', 
+                height: '100px',
+                borderRadius: '20px',
+                boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
+              }} 
+            />
+          </div>
+          
           <h1 style={{ margin: '0 0 0.5rem 0', color: '#333' }}>
             {showForgotPassword ? 'Recuperar Senha' : (isLoginMode ? 'Entrar' : 'Criar Conta')}
           </h1>
@@ -340,10 +355,10 @@ export function Login() {
               marginBottom: '1rem'
             }}
             onMouseOver={(e) => {
-              if (!loading) e.target.style.backgroundColor = '#0056b3';
+              if (!loading) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#0056b3';
             }}
             onMouseOut={(e) => {
-              if (!loading) e.target.style.backgroundColor = '#007bff';
+              if (!loading) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#007bff';
             }}
           >
             {loading 

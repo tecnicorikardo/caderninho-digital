@@ -1,7 +1,8 @@
-import { useState, FormEvent } from 'react';
+import { useState } from 'react';
+import type { FormEvent } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { clientService } from '../../services/clientService';
-import { Client, ClientFormData } from '../../types/client';
+import type { Client, ClientFormData } from '../../types/client';
 import toast from 'react-hot-toast';
 
 interface ClientFormProps {

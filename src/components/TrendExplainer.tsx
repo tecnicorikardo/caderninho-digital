@@ -12,7 +12,7 @@ interface TrendExplainerProps {
 
 export function TrendExplainer({ data }: TrendExplainerProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'trends' | 'predictions' | 'recommendations'>('overview');
-  const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  // const [expandedSection, setExpandedSection] = useState<string | null>(null); // Para uso futuro
 
   const tabs = [
     { id: 'overview', label: '📊 Visão Geral', icon: '📊' },
@@ -111,7 +111,7 @@ export function TrendExplainer({ data }: TrendExplainerProps) {
                 🏆 Produtos Mais Vendidos
               </h4>
               <div style={{ display: 'grid', gap: '0.5rem' }}>
-                {topProducts.slice(0, 3).map((product, index) => (
+                {topProducts.slice(0, 3).map((product: any, index: number) => (
                   <div key={product.id} style={{
                     display: 'flex',
                     justifyContent: 'space-between',
@@ -148,7 +148,7 @@ export function TrendExplainer({ data }: TrendExplainerProps) {
                 💎 Clientes Mais Valiosos
               </h4>
               <div style={{ display: 'grid', gap: '0.5rem' }}>
-                {topClients.slice(0, 3).map((client, index) => (
+                {topClients.slice(0, 3).map((client: any, index: number) => (
                   <div key={client.id} style={{
                     display: 'flex',
                     justifyContent: 'space-between',
@@ -206,7 +206,7 @@ export function TrendExplainer({ data }: TrendExplainerProps) {
                           borderRadius: '4px'
                         }} />
                         <span style={{ fontSize: '0.9rem', color: '#666' }}>
-                          {sales} vendas
+                          {String(sales)} vendas
                         </span>
                       </div>
                     </div>
@@ -223,7 +223,7 @@ export function TrendExplainer({ data }: TrendExplainerProps) {
     const predictions = AIAnalytics.generatePredictions(data);
     const avgSaleValue = data.sales.length > 0 ? 
       data.sales.reduce((sum, s) => sum + (s.total || 0), 0) / data.sales.length : 0;
-    const growth = AIAnalytics.calculateGrowthRate(data.sales);
+    // const growth = AIAnalytics.calculateGrowthRate(data.sales); // Método não implementado
 
     return (
       <div style={{ padding: '1.5rem' }}>

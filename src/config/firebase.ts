@@ -5,16 +5,17 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
+import { getFunctions } from "firebase/functions";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyCSgstRe719NjNr0AIHkApOzOvBm-kv1go",
-  authDomain: "web-gestao-37a85.firebaseapp.com",
-  projectId: "web-gestao-37a85",
-  storageBucket: "web-gestao-37a85.appspot.com",
-  messagingSenderId: "360273086290",
-  appId: "1:360273086290:web:0f47316af2dbd156039c8b",
-  measurementId: "G-S9D85DW3W2"
+  apiKey: "AIzaSyAbYh9oAV4H5EPZJytRZq4HM4DG7q0iYIc",
+  authDomain: "bloquinhodigital.firebaseapp.com",
+  projectId: "bloquinhodigital",
+  storageBucket: "bloquinhodigital.firebasestorage.app",
+  messagingSenderId: "16911555826",
+  appId: "1:16911555826:web:addd018a6120ee67ef846b",
+  measurementId: "G-K6H8VS1F95"
 };
 
 // Initialize Firebase
@@ -24,3 +25,10 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
+export const functions = getFunctions(app);
+
+// API Key do Gemini (Google AI)
+export const GEMINI_API_KEY = "AIzaSyDow13AilNNv_o8MIy5e39z6InypkZWLo8";
+
+// API Key da Groq - usar variável de ambiente
+export const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY || "";

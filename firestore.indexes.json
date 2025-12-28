@@ -9,22 +9,22 @@
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "createdAt",
-          "order": "DESCENDING"
+          "fieldPath": "paymentMethod",
+          "order": "ASCENDING"
         }
       ]
     },
     {
-      "collectionGroup": "clients",
-      "queryScope": "COLLECTION", 
+      "collectionGroup": "products",
+      "queryScope": "COLLECTION",
       "fields": [
         {
           "fieldPath": "userId",
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "createdAt",
-          "order": "DESCENDING"
+          "fieldPath": "name",
+          "order": "ASCENDING"
         }
       ]
     }

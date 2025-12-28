@@ -42,7 +42,7 @@ export function SimpleTrendExplainer({ data }: SimpleTrendExplainerProps) {
       return (
         <div style={{ padding: '1.5rem' }}>
           <div style={{ color: 'red' }}>
-            Erro ao gerar análise: {error.message}
+            Erro ao gerar análise: {(error as Error).message}
           </div>
         </div>
       );
@@ -51,8 +51,7 @@ export function SimpleTrendExplainer({ data }: SimpleTrendExplainerProps) {
 
   const renderTrends = () => {
     try {
-      const salesGrowth = data.sales.length > 0 ? 
-        ((data.sales.length / Math.max(1, data.sales.length - 1)) - 1) * 100 : 0;
+
       
       return (
         <div style={{ padding: '1.5rem' }}>
@@ -118,7 +117,7 @@ export function SimpleTrendExplainer({ data }: SimpleTrendExplainerProps) {
       return (
         <div style={{ padding: '1.5rem' }}>
           <div style={{ color: 'red' }}>
-            Erro ao gerar tendências: {error.message}
+            Erro ao gerar tendências: {(error as Error).message}
           </div>
         </div>
       );

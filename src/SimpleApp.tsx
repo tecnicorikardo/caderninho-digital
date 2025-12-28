@@ -5,10 +5,10 @@ function Home() {
     <div style={{ padding: '20px' }}>
       <h1>Sistema de Gestão - Teste</h1>
       <nav style={{ marginTop: '2rem' }}>
-        <Link to="/dashboard" style={{ marginRight: '1rem', padding: '0.5rem 1rem', backgroundColor: '#007bff', color: 'white', textDecoration: 'none', borderRadius: '4px' }}>
+        <Link to="/dashboard" style={{ marginRight: '1rem', padding: '0.5rem 1rem', backgroundColor: '#2d3748', color: 'white', textDecoration: 'none', borderRadius: '6px' }}>
           Dashboard
         </Link>
-        <Link to="/reports" style={{ padding: '0.5rem 1rem', backgroundColor: '#28a745', color: 'white', textDecoration: 'none', borderRadius: '4px' }}>
+        <Link to="/reports" style={{ padding: '0.5rem 1rem', backgroundColor: '#3182ce', color: 'white', textDecoration: 'none', borderRadius: '6px' }}>
           Relatórios
         </Link>
       </nav>
@@ -21,7 +21,7 @@ function SimpleDashboard() {
     <div style={{ padding: '20px' }}>
       <h1>Dashboard Simples</h1>
       <p>Dashboard funcionando!</p>
-      <Link to="/" style={{ padding: '0.5rem 1rem', backgroundColor: '#6c757d', color: 'white', textDecoration: 'none', borderRadius: '4px' }}>
+      <Link to="/" style={{ padding: '0.5rem 1rem', backgroundColor: '#4a5568', color: 'white', textDecoration: 'none', borderRadius: '6px' }}>
         Voltar
       </Link>
     </div>
@@ -33,7 +33,7 @@ function SimpleReports() {
     <div style={{ padding: '20px' }}>
       <h1>Relatórios Simples</h1>
       <p>Relatórios funcionando!</p>
-      <Link to="/" style={{ padding: '0.5rem 1rem', backgroundColor: '#6c757d', color: 'white', textDecoration: 'none', borderRadius: '4px' }}>
+      <Link to="/" style={{ padding: '0.5rem 1rem', backgroundColor: '#4a5568', color: 'white', textDecoration: 'none', borderRadius: '6px' }}>
         Voltar
       </Link>
     </div>

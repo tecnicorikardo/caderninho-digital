@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Mobile - Caderninho</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+            min-height: 100vh;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+        h1 { font-size: 2.5em; margin-bottom: 20px; }
+        p { font-size: 1.2em; margin: 10px 0; }
+        .status { 
+            background: #4CAF50; 
+            padding: 10px; 
+            border-radius: 8px; 
+            margin: 20px 0;
+            font-weight: bold;
+        }
+        button {
+            background: #FF6B6B;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.1em;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📱 Teste Mobile</h1>
+        <div class="status">✅ App Carregou com Sucesso!</div>
+        
+        <p><strong>Caderninho Digital</strong></p>
+        <p>Versão de Teste Mobile</p>
+        <p id="platform">Plataforma: Detectando...</p>
+        <p id="timestamp">Carregado em: <span id="time"></span></p>
+        
+        <button onclick="testAlert()">Testar Alert</button>
+        <button onclick="testConsole()">Testar Console</button>
+        
+        <div id="logs" style="margin-top: 20px; text-align: left; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px;">
+            <strong>Logs:</strong><br>
+            <div id="logContent">Iniciando testes...</div>
+        </div>
+    </div>
+
+    <script>
+        // Função para adicionar logs
+        function addLog(message) {
+            const logContent = document.getElementById('logContent');
+            const timestamp = new Date().toLocaleTimeString();
+            logContent.innerHTML += `<br>[${timestamp}] ${message}`;
+        }
+
+        // Detectar plataforma
+        function detectPlatform() {
+            const userAgent = navigator.userAgent;
+            let platform = 'Web';
+            
+            if (userAgent.includes('wv')) platform = 'Android WebView';
+            else if (userAgent.includes('Android')) platform = 'Android Browser';
+            else if (userAgent.includes('iPhone')) platform = 'iOS';
+            
+            document.getElementById('platform').textContent = `Plataforma: ${platform}`;
+            addLog(`Plataforma detectada: ${platform}`);
+        }
+
+        // Testar alert
+        function testAlert() {
+            alert('✅ Alert funcionando!');
+            addLog('Alert testado com sucesso');
+        }
+
+        // Testar console
+        function testConsole() {
+            console.log('✅ Console funcionando!');
+            addLog('Console testado - verifique DevTools');
+        }
+
+        // Inicializar
+        document.addEventListener('DOMContentLoaded', function() {
+            const now = new Date();
+            document.getElementById('time').textContent = now.toLocaleString();
+            
+            detectPlatform();
+            addLog('Página carregada com sucesso');
+            addLog('DOM pronto');
+            
+            // Testar se é Capacitor
+            if (window.Capacitor) {
+                addLog('✅ Capacitor detectado!');
+                addLog(`Plataforma Capacitor: ${window.Capacitor.getPlatform()}`);
+            } else {
+                addLog('❌ Capacitor não detectado (normal na web)');
+            }
+        });
+
+        // Log de erros
+        window.addEventListener('error', function(e) {
+            addLog(`❌ Erro: ${e.message}`);
+        });
+    </script>
+</body>
+</html>

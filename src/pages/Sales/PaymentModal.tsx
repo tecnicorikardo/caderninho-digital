@@ -1,5 +1,6 @@
-import { useState, FormEvent } from 'react';
-import { Sale } from '../../types/sale';
+import { useState } from 'react';
+import type { FormEvent } from 'react';
+import type { Sale } from '../../types/sale';
 import { saleService } from '../../services/saleService';
 import toast from 'react-hot-toast';
 

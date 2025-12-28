@@ -9,6 +9,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>📓 Caderninho Digital</title>
     
+    <!-- Cache Control - Força atualização -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    
     <!-- PWA Meta Tags -->
     <meta name="description" content="Sistema completo de gestão empresarial - Vendas, Clientes, Estoque e Financeiro" />
     <meta name="application-name" content="Caderninho Digital" />
@@ -22,9 +27,31 @@
     
     <!-- Manifest -->
     <link rel="manifest" href="/manifest.json" />
+    <!-- Tratamento de erros global -->
+    <script>
+      window.addEventListener('error', function(e) {
+        console.error('🔴 ERRO GLOBAL:', e.error);
+        document.getElementById('root').innerHTML = '<div style="padding: 20px; font-family: Arial;"><h1>Erro ao carregar aplicação</h1><p>' + e.error + '</p><p>Verifique o console para mais detalhes.</p></div>';
+      });
+    </script>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    
+    <!-- Service Worker para notificações push -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then((registration) => {
+              console.log('✅ Service Worker registrado:', registration.scope);
+            })
+            .catch((error) => {
+              console.error('❌ Erro ao registrar Service Worker:', error);
+            });
+        });
+      }
+    </script>
   </body>
 </html>

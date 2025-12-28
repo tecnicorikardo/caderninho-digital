@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { usePayment } from '../../hooks/usePayment';
@@ -8,54 +8,26 @@ import toast from 'react-hot-toast';
 export function Upgrade() {
   const navigate = useNavigate();
   const { subscription, plans } = useSubscription();
-  const { createSubscriptionPayment, loading: paymentLoading, simulatePaymentSuccess } = usePayment();
+  const { loading: paymentLoading } = usePayment();
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('monthly');
   const [showPremiumForm, setShowPremiumForm] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState('pix');
-  const [loading, setLoading] = useState(false);
+
   const [showPayment, setShowPayment] = useState(false);
-  const [paymentData, setPaymentData] = useState<any>(null);
+  
+  // Ref para o formulário de pagamento
+  const paymentFormRef = useRef<HTMLDivElement>(null);
 
   const freePlan = plans.find(p => p.id === 'free');
   const premiumPlan = plans.find(p => p.id === 'premium');
 
   const handleUpgrade = async () => {
-    if (paymentMethod === 'pix') {
-      setShowPayment(true);
-      toast.success('Pagamento PIX gerado! Use o código ou QR Code.');
-    } else if (paymentMethod === 'picpay') {
-      setLoading(true);
-      
-      try {
-        const payment = await createSubscriptionPayment(selectedPlan);
-        
-        if (payment) {
-          setPaymentData(payment);
-          setShowPayment(true);
-          toast.success('Pagamento PicPay criado! Escaneie o QR Code.');
-        }
-      } catch (error) {
-        console.error('Erro no pagamento:', error);
-        toast.error('Erro ao criar pagamento');
-      } finally {
-        setLoading(false);
-      }
-    } else {
-      // Outros métodos de pagamento
-      toast.info('Método de pagamento em desenvolvimento');
-    }
+    setShowPayment(true);
+    toast.success('Pagamento PIX gerado! Use o código copia e cola.');
   };
 
   const handlePaymentSuccess = () => {
     toast.success('🎉 Pagamento aprovado! Bem-vindo ao Premium!');
     navigate('/');
-  };
-
-  const handleSimulateSuccess = () => {
-    if (paymentData) {
-      simulatePaymentSuccess(paymentData.referenceId);
-      handlePaymentSuccess();
-    }
   };
 
   return (
@@ -98,7 +70,7 @@ export function Upgrade() {
                 R$ 0<span style={{ fontSize: '1rem', fontWeight: 'normal' }}>/mês</span>
               </div>
               <div style={{ fontSize: '0.9rem', color: '#666' }}>
-                12 meses grátis
+                2 meses grátis
               </div>
             </div>
 
@@ -182,7 +154,16 @@ export function Upgrade() {
             </ul>
 
             <button
-              onClick={() => setShowPremiumForm(true)}
+              onClick={() => {
+                setShowPremiumForm(true);
+                // Scroll suave para o formulário após um pequeno delay
+                setTimeout(() => {
+                  paymentFormRef.current?.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'start' 
+                  });
+                }, 100);
+              }}
               style={{
                 width: '100%',
                 padding: '1rem',
@@ -205,14 +186,17 @@ export function Upgrade() {
 
         {/* Formulário de Pagamento */}
         {showPremiumForm && (
-          <div style={{
-            backgroundColor: 'white',
-            padding: '2rem',
-            borderRadius: '16px',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
-            maxWidth: '600px',
-            margin: '0 auto'
-          }}>
+          <div 
+            ref={paymentFormRef}
+            style={{
+              backgroundColor: 'white',
+              padding: '2rem',
+              borderRadius: '16px',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+              maxWidth: '600px',
+              margin: '0 auto',
+              scrollMarginTop: '2rem' // Espaço do topo ao fazer scroll
+            }}>
             <h3 style={{ margin: '0 0 2rem 0', textAlign: 'center' }}>
               Finalizar Pagamento
             </h3>
@@ -222,37 +206,20 @@ export function Upgrade() {
               <label style={{ display: 'block', marginBottom: '1rem', fontWeight: '500' }}>
                 Forma de Pagamento
               </label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
-                {[
-                  { id: 'pix', label: '📱 PIX', desc: 'Instantâneo e seguro' },
-                  { id: 'picpay', label: '💳 PicPay', desc: 'Em desenvolvimento' },
-                  { id: 'card', label: '💳 Cartão', desc: 'Em desenvolvimento' }
-                ].map(method => (
-                  <button
-                    key={method.id}
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setPaymentMethod(method.id);
-                    }}
-                    style={{
-                      padding: '1rem',
-                      border: `2px solid ${paymentMethod === method.id ? '#32BCAD' : '#e1e5e9'}`,
-                      borderRadius: '8px',
-                      backgroundColor: paymentMethod === method.id ? '#f0fff0' : 'white',
-                      cursor: 'pointer',
-                      textAlign: 'center'
-                    }}
-                  >
-                    <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>
-                      {method.label}
-                    </div>
-                    <div style={{ fontSize: '0.8rem', color: '#666' }}>
-                      {method.desc}
-                    </div>
-                  </button>
-                ))}
+              <div style={{ 
+                padding: '1.5rem',
+                border: '2px solid #32BCAD',
+                borderRadius: '12px',
+                backgroundColor: '#f0fff0',
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📱</div>
+                <div style={{ fontWeight: 'bold', fontSize: '1.2rem', marginBottom: '0.5rem', color: '#32BCAD' }}>
+                  PIX - Pagamento Instantâneo
+                </div>
+                <div style={{ fontSize: '0.9rem', color: '#666' }}>
+                  Aprovação imediata • Seguro • Sem taxas
+                </div>
               </div>
             </div>
 
@@ -350,116 +317,24 @@ export function Upgrade() {
                   <span>-R$ 40,00</span>
                 </div>
               )}
-              {paymentMethod === 'picpay' && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                  <span>Taxa PicPay (2,99%)</span>
-                  <span>R$ {selectedPlan === 'monthly' ? '0,60' : '6,00'}</span>
-                </div>
-              )}
+
               <hr style={{ margin: '1rem 0' }} />
               <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '1.2rem' }}>
                 <span>Total</span>
-                <span style={{ color: paymentMethod === 'pix' ? '#32BCAD' : '#007bff' }}>
-                  R$ {paymentMethod === 'pix' ? 
-                      (selectedPlan === 'monthly' ? '20,00' : '200,00') :
-                      (selectedPlan === 'monthly' ? '20,60' : '206,00')}
+                <span style={{ color: '#32BCAD' }}>
+                  R$ {selectedPlan === 'monthly' ? '20,00' : '200,00'}
                 </span>
               </div>
             </div>
 
             {/* Interface de Pagamento PIX */}
-            {showPayment && paymentMethod === 'pix' ? (
+            {showPayment ? (
               <PixPayment
-                amount={selectedPlan === 'monthly' ? 20.60 : 206.00}
+                amount={selectedPlan === 'monthly' ? 20.00 : 200.00}
                 description={`Plano Premium ${selectedPlan === 'monthly' ? 'Mensal' : 'Anual'}`}
                 onSuccess={handlePaymentSuccess}
                 onCancel={() => setShowPayment(false)}
               />
-            ) : showPayment && paymentData ? (
-              <div style={{
-                padding: '2rem',
-                backgroundColor: '#f0f8ff',
-                borderRadius: '12px',
-                marginBottom: '2rem',
-                textAlign: 'center'
-              }}>
-                <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>💳</div>
-                <h3 style={{ margin: '0 0 1rem 0' }}>Pagamento PicPay</h3>
-                <p style={{ color: '#666', marginBottom: '2rem' }}>
-                  Escaneie o QR Code ou clique no botão para pagar
-                </p>
-
-                {/* QR Code Simulado */}
-                <div style={{
-                  width: '200px',
-                  height: '200px',
-                  backgroundColor: 'white',
-                  border: '2px solid #ddd',
-                  borderRadius: '8px',
-                  margin: '0 auto 2rem auto',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '0.9rem',
-                  color: '#666'
-                }}>
-                  QR Code PicPay<br />
-                  (Simulação)
-                </div>
-
-                {/* Botão PicPay */}
-                <a
-                  href={paymentData.paymentUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    display: 'inline-block',
-                    padding: '1rem 2rem',
-                    backgroundColor: '#11C76F',
-                    color: 'white',
-                    textDecoration: 'none',
-                    borderRadius: '8px',
-                    fontWeight: 'bold',
-                    fontSize: '1.1rem',
-                    marginBottom: '1rem'
-                  }}
-                >
-                  💳 Abrir PicPay
-                </a>
-
-                {/* Botão para simular sucesso (apenas desenvolvimento) */}
-                <div style={{ marginTop: '1rem' }}>
-                  <button
-                    onClick={handleSimulateSuccess}
-                    style={{
-                      padding: '0.75rem 1.5rem',
-                      backgroundColor: '#28a745',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      fontSize: '0.9rem'
-                    }}
-                  >
-                    🧪 Simular Pagamento Aprovado
-                  </button>
-                </div>
-
-                <div style={{
-                  marginTop: '2rem',
-                  padding: '1rem',
-                  backgroundColor: 'white',
-                  borderRadius: '8px',
-                  fontSize: '0.9rem',
-                  color: '#666'
-                }}>
-                  <strong>Como pagar:</strong><br />
-                  1. Abra o app do PicPay<br />
-                  2. Escaneie o QR Code<br />
-                  3. Confirme o pagamento<br />
-                  4. Aguarde a confirmação
-                </div>
-              </div>
             ) : (
               /* Botões */
               <div style={{ display: 'flex', gap: '1rem' }}>
@@ -479,23 +354,20 @@ export function Upgrade() {
                 </button>
                 <button
                   onClick={handleUpgrade}
-                  disabled={loading || paymentLoading}
+                  disabled={paymentLoading}
                   style={{
                     flex: 2,
                     padding: '1rem',
-                    backgroundColor: (loading || paymentLoading) ? '#ccc' : 
-                                   paymentMethod === 'pix' ? '#32BCAD' : '#11C76F',
+                    backgroundColor: paymentLoading ? '#ccc' : '#32BCAD',
                     color: 'white',
                     border: 'none',
                     borderRadius: '8px',
-                    cursor: (loading || paymentLoading) ? 'not-allowed' : 'pointer',
+                    cursor: paymentLoading ? 'not-allowed' : 'pointer',
                     fontWeight: 'bold'
                   }}
                 >
-                  {(loading || paymentLoading) ? 'Processando...' : 
-                   paymentMethod === 'pix' ? 
-                   `📱 Pagar R$ ${selectedPlan === 'monthly' ? '20,00' : '200,00'} via PIX` :
-                   `💳 Pagar R$ ${selectedPlan === 'monthly' ? '20,60' : '206,00'} via PicPay`}
+                  {paymentLoading ? 'Processando...' : 
+                   `📱 Pagar R$ ${selectedPlan === 'monthly' ? '20,00' : '200,00'} via PIX`}
                 </button>
               </div>
             )}

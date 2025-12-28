@@ -172,7 +172,9 @@ export function MobileSales() {
   const calculateTotal = (products: Product[], discount: number) => {
     const subtotal = products.reduce((sum, product) => sum + (product.price * product.quantity), 0);
     const total = subtotal - discount;
-    setFormData(prev => ({ ...prev, paidAmount: total }));
+    // Para vendas fiado, paidAmount deve ser 0 por padrão
+    const paidAmount = formData.paymentMethod === 'fiado' ? 0 : total;
+    setFormData(prev => ({ ...prev, paidAmount }));
   };
 
   const addProduct = () => {
@@ -271,20 +273,16 @@ export function MobileSales() {
   };
 
   const deleteSale = async (saleId: string) => {
+    if (!user) return;
+    
     if (window.confirm('Tem certeza que deseja excluir esta venda?')) {
       try {
-        // 1. Deletar do Firebase (fonte principal)
-        await saleService.deleteSale(saleId);
+        // ✅ Usar função completa do serviço que reverte estoque e remove transações
+        await saleService.deleteSaleComplete(saleId, user.uid);
         
-        // 2. Atualizar estado local e localStorage (cache)
+        // Atualizar estado local
         const updatedSales = sales.filter(sale => sale.id !== saleId);
         setSales(updatedSales);
-        localStorage.setItem(`sales_${user.uid}`, JSON.stringify(
-          updatedSales.map(sale => ({
-            ...sale,
-            createdAt: sale.createdAt.toISOString()
-          }))
-        ));
         
         toast.success('Venda excluída!');
       } catch (error) {
@@ -696,7 +694,11 @@ export function MobileSales() {
                     <button
                       key={method.value}
                       type="button"
-                      onClick={() => setFormData({ ...formData, paymentMethod: method.value as any })}
+                      onClick={() => {
+                        const total = formData.products.reduce((sum, p) => sum + (p.price * p.quantity), 0) - formData.discount;
+                        const paidAmount = method.value === 'fiado' ? 0 : total;
+                        setFormData({ ...formData, paymentMethod: method.value as any, paidAmount });
+                      }}
                       style={{
                         padding: '0.75rem',
                         backgroundColor: formData.paymentMethod === method.value ? method.color : '#f8f9fa',
@@ -734,10 +736,11 @@ export function MobileSales() {
                     setFormData({ ...formData, paidAmount });
                   }}
                   onBlur={(e) => {
-                    // Se estiver vazio, preencher com o total
+                    // Se estiver vazio, preencher com o total apenas se não for fiado
                     if (e.target.value === '') {
                       const total = formData.products.reduce((sum, p) => sum + (p.price * p.quantity), 0) - formData.discount;
-                      setFormData({ ...formData, paidAmount: total });
+                      const paidAmount = formData.paymentMethod === 'fiado' ? 0 : total;
+                      setFormData({ ...formData, paidAmount });
                     }
                   }}
                   min="0"

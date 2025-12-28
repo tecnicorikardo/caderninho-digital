@@ -10,7 +10,7 @@ import {
   Timestamp,
 } from "firebase/firestore";
 import { db } from "../../config/firebase";
-import { clientService } from "../../services/clientService";
+// import { clientService } from "../../services/clientService"; // Não utilizado
 import toast from "react-hot-toast";
 
 interface Product {
@@ -30,17 +30,16 @@ interface Sale {
   userId: string;
 }
 
-interface Client {
-  id: string;
-  name: string;
-  email: string;
-}
+// interface Client {
+//   id: string;
+//   name: string;
+//   email: string;
+// }
 
 export function Sales() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [sales, setSales] = useState<Sale[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
 
@@ -84,14 +83,14 @@ export function Sales() {
         salesData.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
       );
 
-      // Carregar clientes
-      try {
-        const firebaseClients = await clientService.getClients(user.uid);
-        setClients(firebaseClients);
-      } catch (error) {
-        console.log("Erro ao carregar clientes:", error);
-        setClients([]);
-      }
+      // Carregar clientes (comentado pois não está sendo usado)
+      // try {
+      //   const firebaseClients = await clientService.getClients(user.uid);
+      //   setClients(firebaseClients);
+      // } catch (error) {
+      //   console.log("Erro ao carregar clientes:", error);
+      //   setClients([]);
+      // }
 
       console.log(`${salesData.length} vendas carregadas`);
     } catch (error) {
@@ -110,13 +109,15 @@ export function Sales() {
       return;
     }
 
-    if (!formData.productName || formData.price <= 0) {
-      toast.error("Preencha todos os campos corretamente");
+    const price = Number(formData.price) || 0;
+    if (!formData.productName || price < 0.01) {
+      toast.error("Preencha todos os campos corretamente. Preço mínimo: R$ 0,01");
       return;
     }
 
     try {
-      const total = formData.price * formData.quantity;
+      const price = Number(formData.price) || 0;
+      const total = price * formData.quantity;
 
       const saleData = {
         clientName: formData.clientName || undefined,
@@ -124,7 +125,7 @@ export function Sales() {
           {
             id: "1",
             name: formData.productName,
-            price: formData.price,
+            price: price, // usar o price já convertido
             quantity: formData.quantity,
           },
         ],
@@ -618,14 +619,26 @@ export function Sales() {
                   <input
                     type="number"
                     value={formData.price || ""}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      const value = e.target.value === '' ? 0 : Number(e.target.value);
                       setFormData((prev) => ({
                         ...prev,
-                        price: parseFloat(e.target.value) || 0,
-                      }))
-                    }
-                    placeholder="0.00"
-                    min="0"
+                        price: value,
+                      }));
+                    }}
+                    onBlur={(e) => {
+                      // Validação só ao sair do campo
+                      const numValue = Number(e.target.value);
+                      if (isNaN(numValue) || numValue < 0.01) {
+                        setFormData(prev => ({ ...prev, price: 0.01 }));
+                      } else if (numValue > 9999) {
+                        setFormData(prev => ({ ...prev, price: 9999 }));
+                      }
+                      // Restaurar estilo
+                      e.currentTarget.style.borderColor = "rgba(225, 229, 233, 0.5)";
+                      e.currentTarget.style.background = "rgba(248, 249, 250, 0.5)";
+                    }}
+                    placeholder="Digite o preço"
                     step="0.01"
                     required
                     style={{
@@ -641,13 +654,14 @@ export function Sales() {
                       e.currentTarget.style.borderColor = "#34C759";
                       e.currentTarget.style.background = "white";
                     }}
-                    onBlur={(e) => {
-                      e.currentTarget.style.borderColor =
-                        "rgba(225, 229, 233, 0.5)";
-                      e.currentTarget.style.background =
-                        "rgba(248, 249, 250, 0.5)";
-                    }}
                   />
+                  <div style={{ 
+                    fontSize: '0.8rem', 
+                    color: '#666', 
+                    marginTop: '0.25rem' 
+                  }}>
+                    💡 Valores permitidos: R$ 0,01 até R$ 9.999,00
+                  </div>
                 </div>
 
                 <div>
@@ -775,7 +789,7 @@ export function Sales() {
                     WebkitTextFillColor: "transparent",
                   }}
                 >
-                  R$ {(formData.price * formData.quantity).toFixed(2)}
+                  R$ {((Number(formData.price) || 0) * formData.quantity).toFixed(2)}
                 </div>
               </div>
 

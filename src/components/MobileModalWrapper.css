@@ -1,0 +1,109 @@
+/* Wrapper para modais mobile */
+.mobile-modal-wrapper {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: white;
+  z-index: 1002;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.mobile-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  border-bottom: 1px solid #e0e0e0;
+  background: #f8f9fa;
+  min-height: 60px;
+}
+
+.mobile-modal-title {
+  flex: 1;
+  text-align: center;
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+}
+
+.mobile-close-btn {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: #666;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.mobile-close-btn:hover {
+  background: #e0e0e0;
+  color: #333;
+}
+
+.mobile-close-btn:active {
+  transform: scale(0.95);
+}
+
+.mobile-modal-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  padding-bottom: 90px; /* Espaço para navegação bottom */
+}
+
+/* Ajustes para iOS */
+.ios .mobile-modal-header {
+  padding-top: calc(16px + env(safe-area-inset-top));
+  min-height: calc(60px + env(safe-area-inset-top));
+}
+
+.ios .mobile-modal-content {
+  padding-bottom: calc(90px + env(safe-area-inset-bottom));
+}
+
+/* Animação de entrada */
+.mobile-modal-wrapper {
+  animation: slideInUp 0.3s ease-out;
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsivo - não aplicar em desktop */
+@media (min-width: 768px) {
+  .mobile-modal-wrapper {
+    position: relative;
+    background: transparent;
+    z-index: auto;
+    animation: none;
+  }
+  
+  .mobile-modal-header {
+    display: none;
+  }
+  
+  .mobile-modal-content {
+    padding: 0;
+    overflow: visible;
+  }
+}

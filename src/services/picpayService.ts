@@ -1,4 +1,4 @@
-import axios from 'axios';
+// import axios from 'axios'; // Comentado pois não está sendo usado no modo de desenvolvimento
 
 interface PicPayPayment {
   referenceId: string;
@@ -25,22 +25,23 @@ interface PicPayResponse {
 }
 
 class PicPayService {
-  private baseURL: string;
-  private token: string;
-  private sellerToken: string;
+  // Propriedades privadas para uso futuro em produção
+  // private baseURL: string;
+  // private token: string;
+  // private sellerToken: string;
 
   constructor() {
     // Por enquanto, usar valores de exemplo para desenvolvimento
     // Em produção, usar variáveis de ambiente
-    const isProduction = false; // Mudar para true em produção
+    // const isProduction = false; // Mudar para true em produção
     
-    this.baseURL = isProduction 
-      ? 'https://appws.picpay.com/ecommerce/public'
-      : 'https://sandbox.picpay.com/ecommerce/public';
+    // this.baseURL = isProduction 
+    //   ? 'https://appws.picpay.com/ecommerce/public'
+    //   : 'https://sandbox.picpay.com/ecommerce/public';
     
     // Tokens de exemplo - substituir pelos reais
-    this.token = 'seu_token_picpay_aqui';
-    this.sellerToken = 'seu_seller_token_aqui';
+    // this.token = 'seu_token_picpay_aqui';
+    // this.sellerToken = 'seu_seller_token_aqui';
   }
 
   async createPayment(paymentData: PicPayPayment): Promise<PicPayResponse> {
@@ -150,16 +151,18 @@ class PicPayService {
   }
 
   // Método para configurar tokens em produção
-  setCredentials(token: string, sellerToken: string) {
-    this.token = token;
-    this.sellerToken = sellerToken;
+  setCredentials(_token: string, _sellerToken: string) {
+    // this.token = token;
+    // this.sellerToken = sellerToken;
+    console.log('Credentials set (development mode)');
   }
 
   // Método para alternar entre sandbox e produção
-  setEnvironment(isProduction: boolean) {
-    this.baseURL = isProduction 
-      ? 'https://appws.picpay.com/ecommerce/public'
-      : 'https://sandbox.picpay.com/ecommerce/public';
+  setEnvironment(_isProduction: boolean) {
+    // this.baseURL = isProduction 
+    //   ? 'https://appws.picpay.com/ecommerce/public'
+    //   : 'https://sandbox.picpay.com/ecommerce/public';
+    console.log('Environment set (development mode)');
   }
 }
 

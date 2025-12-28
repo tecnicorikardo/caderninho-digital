@@ -1,8 +1,9 @@
-import { useState, FormEvent } from 'react';
+import { useState } from 'react';
+import type { FormEvent } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { saleService } from '../../services/saleService';
-import { Client } from '../../types/client';
-import { Product, SaleFormData } from '../../types/sale';
+import type { Client } from '../../types/client';
+import type { Product, SaleFormData } from '../../types/sale';
 import toast from 'react-hot-toast';
 
 // Tipo temporário para o formulário que permite quantity como string durante edição
@@ -10,13 +11,22 @@ interface FormProduct extends Omit<Product, 'quantity'> {
   quantity: number | string;
 }
 
+interface StockProduct {
+  id: string;
+  name: string;
+  salePrice: number;
+  quantity: number;
+  sku?: string;
+}
+
 interface SaleFormProps {
   clients: Client[];
+  products: StockProduct[];
   onSuccess: () => void;
   onCancel: () => void;
 }
 
-export function SaleForm({ clients, onSuccess, onCancel }: SaleFormProps) {
+export function SaleForm({ clients, products, onSuccess, onCancel }: SaleFormProps) {
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
   
@@ -34,14 +44,28 @@ export function SaleForm({ clients, onSuccess, onCancel }: SaleFormProps) {
     if (!user) return;
 
     // Validações
-    if (formData.products.some(p => !p.name || p.price <= 0)) {
-      toast.error('Preencha todos os produtos corretamente');
+    if (formData.products.some(p => !p.name || Number(p.price) < 0.01)) {
+      toast.error('Preencha todos os produtos corretamente. Preço mínimo: R$ 0,01');
       return;
     }
 
     try {
       setLoading(true);
-      await saleService.createSale(formData, user.uid);
+      
+      // Garantir que todos os valores sejam números
+      const processedFormData = {
+        ...formData,
+        products: formData.products.map(product => ({
+          ...product,
+          price: Number(product.price) || 0,
+          quantity: Number(product.quantity) || 0
+        })),
+        discount: Number(formData.discount) || 0,
+        paidAmount: Number(formData.paidAmount) || 0,
+        loanAmount: Number(formData.loanAmount) || 0
+      };
+      
+      await saleService.createSale(processedFormData, user.uid);
       toast.success('Venda criada com sucesso!');
       onSuccess();
     } catch (error) {
@@ -81,11 +105,28 @@ export function SaleForm({ clients, onSuccess, onCancel }: SaleFormProps) {
     }));
   };
 
+  const handleProductSelect = (index: number, productId: string) => {
+    const selectedProduct = products.find(p => p.id === productId);
+    if (selectedProduct) {
+      setFormData(prev => ({
+        ...prev,
+        products: prev.products.map((product, i) => 
+          i === index ? {
+            ...product,
+            id: selectedProduct.id,
+            name: selectedProduct.name,
+            price: selectedProduct.salePrice
+          } : product
+        )
+      }));
+    }
+  };
+
   const subtotal = formData.products.reduce((sum, product) => 
-    sum + (product.price * product.quantity), 0
+    sum + ((Number(product.price) || 0) * (Number(product.quantity) || 0)), 0
   );
   
-  const total = subtotal - formData.discount + (formData.loanAmount || 0);
+  const total = subtotal - (Number(formData.discount) || 0) + (Number(formData.loanAmount) || 0);
 
   return (
     <div style={{
@@ -185,32 +226,68 @@ export function SaleForm({ clients, onSuccess, onCancel }: SaleFormProps) {
                 gridTemplateColumns: '2fr 1fr 1fr auto', 
                 gap: '0.5rem', 
                 marginBottom: '0.5rem',
-                alignItems: 'center'
+                alignItems: 'start'
               }}>
-                <input
-                  type="text"
-                  placeholder="Nome do produto"
-                  value={product.name}
-                  onChange={(e) => updateProduct(index, 'name', e.target.value)}
-                  required
-                  style={{
-                    padding: '0.75rem',
-                    border: '2px solid #e1e5e9',
-                    borderRadius: '8px'
-                  }}
-                />
+                <div>
+                  {products.length > 0 && (
+                    <select
+                      value={product.id || ''}
+                      onChange={(e) => handleProductSelect(index, e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '0.75rem',
+                        border: '2px solid #e1e5e9',
+                        borderRadius: '8px',
+                        marginBottom: '0.5rem',
+                        fontSize: '1rem'
+                      }}
+                    >
+                      <option value="">Selecione do estoque ou digite abaixo</option>
+                      {products.map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} - R$ {p.salePrice.toFixed(2)} (Estoque: {p.quantity})
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  <input
+                    type="text"
+                    placeholder="Ou digite o nome do produto"
+                    value={product.name}
+                    onChange={(e) => updateProduct(index, 'name', e.target.value)}
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem',
+                      border: '2px solid #e1e5e9',
+                      borderRadius: '8px'
+                    }}
+                  />
+                </div>
                 <input
                   type="number"
-                  placeholder="Preço"
-                  value={product.price}
-                  onChange={(e) => updateProduct(index, 'price', parseFloat(e.target.value) || 0)}
-                  min="0"
+                  placeholder="Digite o preço"
+                  value={product.price || ''}
+                  onChange={(e) => {
+                    const value = e.target.value === '' ? '' : e.target.value;
+                    updateProduct(index, 'price', value);
+                  }}
+                  onBlur={(e) => {
+                    // Validação só ao sair do campo
+                    const numValue = parseFloat(e.target.value);
+                    if (isNaN(numValue) || numValue < 0.01) {
+                      updateProduct(index, 'price', 0.01);
+                    } else if (numValue > 9999) {
+                      updateProduct(index, 'price', 9999);
+                    }
+                  }}
                   step="0.01"
                   required
                   style={{
                     padding: '0.75rem',
                     border: '2px solid #e1e5e9',
-                    borderRadius: '8px'
+                    borderRadius: '8px',
+                    fontSize: '1rem'
                   }}
                 />
                 <input
@@ -268,10 +345,22 @@ export function SaleForm({ clients, onSuccess, onCancel }: SaleFormProps) {
             </label>
             <input
               type="number"
-              value={formData.discount}
-              onChange={(e) => setFormData(prev => ({ ...prev, discount: parseFloat(e.target.value) || 0 }))}
-              min="0"
+              value={formData.discount || ''}
+              onChange={(e) => {
+                const value = e.target.value === '' ? 0 : Number(e.target.value);
+                setFormData(prev => ({ ...prev, discount: value }));
+              }}
+              onBlur={(e) => {
+                // Validação só ao sair do campo
+                const numValue = Number(e.target.value);
+                if (isNaN(numValue) || numValue < 0) {
+                  setFormData(prev => ({ ...prev, discount: 0 }));
+                } else if (numValue > 9999) {
+                  setFormData(prev => ({ ...prev, discount: 9999 }));
+                }
+              }}
               step="0.01"
+              placeholder="Digite o desconto"
               style={{
                 width: '100%',
                 padding: '0.75rem',
@@ -295,10 +384,21 @@ export function SaleForm({ clients, onSuccess, onCancel }: SaleFormProps) {
             {formData.isLoan && (
               <input
                 type="number"
-                placeholder="Valor do empréstimo"
-                value={formData.loanAmount || 0}
-                onChange={(e) => setFormData(prev => ({ ...prev, loanAmount: parseFloat(e.target.value) || 0 }))}
-                min="0"
+                placeholder="Digite o valor do empréstimo"
+                value={formData.loanAmount || ''}
+                onChange={(e) => {
+                  const value = e.target.value === '' ? 0 : Number(e.target.value);
+                  setFormData(prev => ({ ...prev, loanAmount: value }));
+                }}
+                onBlur={(e) => {
+                  // Validação só ao sair do campo
+                  const numValue = Number(e.target.value);
+                  if (isNaN(numValue) || numValue < 0) {
+                    setFormData(prev => ({ ...prev, loanAmount: 0 }));
+                  } else if (numValue > 9999) {
+                    setFormData(prev => ({ ...prev, loanAmount: 9999 }));
+                  }
+                }}
                 step="0.01"
                 style={{
                   width: '100%',
@@ -364,11 +464,23 @@ export function SaleForm({ clients, onSuccess, onCancel }: SaleFormProps) {
             </label>
             <input
               type="number"
-              value={formData.paidAmount}
-              onChange={(e) => setFormData(prev => ({ ...prev, paidAmount: parseFloat(e.target.value) || 0 }))}
-              min="0"
-              max={total}
+              value={formData.paidAmount || ''}
+              onChange={(e) => {
+                const value = e.target.value === '' ? 0 : Number(e.target.value);
+                setFormData(prev => ({ ...prev, paidAmount: value }));
+              }}
+              onBlur={(e) => {
+                // Validação só ao sair do campo
+                const numValue = Number(e.target.value);
+                const maxValue = Math.min(total, 9999);
+                if (isNaN(numValue) || numValue < 0) {
+                  setFormData(prev => ({ ...prev, paidAmount: 0 }));
+                } else if (numValue > maxValue) {
+                  setFormData(prev => ({ ...prev, paidAmount: maxValue }));
+                }
+              }}
               step="0.01"
+              placeholder="Digite o valor pago"
               style={{
                 width: '100%',
                 padding: '0.75rem',

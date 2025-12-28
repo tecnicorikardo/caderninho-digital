@@ -5,10 +5,14 @@ import { Clients } from "../pages/Clients";
 import { Sales } from "../pages/Sales";
 import { Stock } from "../pages/Stock";
 import { Finance } from "../pages/Finance";
+import { Fiados } from "../pages/Fiados";
 import { Reports } from "../pages/Reports";
 import { Settings } from "../pages/Settings";
 import { Upgrade } from "../pages/Upgrade";
+import { AdminDashboard } from "../pages/Admin";
 import { ProtectedRoute } from "../components/ProtectedRoute";
+import { MobileNavigation } from "../components/MobileNavigation";
+import { MigrationPrompt } from "../components/MigrationPrompt";
 
 export function AppRoutes() {
   return (
@@ -40,6 +44,11 @@ export function AppRoutes() {
             <Finance />
           </ProtectedRoute>
         } />
+        <Route path="/fiados" element={
+          <ProtectedRoute>
+            <Fiados />
+          </ProtectedRoute>
+        } />
         <Route path="/reports" element={
           <ProtectedRoute>
             <Reports />
@@ -55,7 +64,14 @@ export function AppRoutes() {
             <Upgrade />
           </ProtectedRoute>
         } />
+        <Route path="/admin" element={
+          <ProtectedRoute>
+            <AdminDashboard />
+          </ProtectedRoute>
+        } />
       </Routes>
+      <MobileNavigation />
+      <MigrationPrompt />
     </BrowserRouter>
   );
 }

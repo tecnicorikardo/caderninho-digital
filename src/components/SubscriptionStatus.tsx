@@ -7,15 +7,88 @@ interface SubscriptionStatusProps {
 export function SubscriptionStatus({ compact = false }: SubscriptionStatusProps) {
   const { 
     subscription, 
-    usage, 
     isActive, 
     daysRemaining, 
     upgradeToPremium,
     loading 
   } = useSubscription();
 
-  if (loading || !subscription || !usage) {
-    return null;
+  console.log('🔍 SubscriptionStatus render:', {
+    loading,
+    subscription: subscription ? {
+      plan: subscription.plan,
+      status: subscription.status,
+      endDate: subscription.endDate?.toLocaleDateString('pt-BR')
+    } : null,
+    isActive,
+    daysRemaining
+  });
+
+  if (loading) {
+    return (
+      <div style={{
+        backgroundColor: 'white',
+        padding: '1.5rem',
+        borderRadius: '12px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+        border: '2px solid #e1e5e9',
+        marginBottom: '1rem',
+        textAlign: 'center'
+      }}>
+        <div>⏳ Carregando informações da assinatura...</div>
+      </div>
+    );
+  }
+
+  if (!subscription) {
+    console.log('⚠️ Subscription is null/undefined');
+    return (
+      <div style={{
+        backgroundColor: 'white',
+        padding: '1.5rem',
+        borderRadius: '12px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+        border: '2px solid #ffc107',
+        marginBottom: '1rem'
+      }}>
+        <div style={{ color: '#856404', fontWeight: 'bold', marginBottom: '1rem' }}>
+          ⚠️ Carregando informações da assinatura...
+        </div>
+        <div style={{ fontSize: '0.9rem', color: '#666', marginBottom: '1rem' }}>
+          Se este problema persistir, tente recarregar a página ou fazer logout/login novamente.
+        </div>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button
+            onClick={() => window.location.reload()}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: '#007bff',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '0.9rem'
+            }}
+          >
+            🔄 Recarregar Página
+          </button>
+          <button
+            onClick={() => window.location.href = '/upgrade'}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: '#28a745',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '0.9rem'
+            }}
+          >
+            💎 Ver Planos
+          </button>
+        </div>
+      </div>
+    );
   }
 
   if (compact) {
@@ -37,13 +110,16 @@ export function SubscriptionStatus({ compact = false }: SubscriptionStatusProps)
     );
   }
 
+  // Verificar se está realmente ativo baseado nos dias restantes
+  const isReallyActive = daysRemaining > 0;
+
   return (
     <div style={{
       backgroundColor: 'white',
       padding: '1.5rem',
       borderRadius: '12px',
       boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-      border: `2px solid ${isActive ? '#28a745' : '#dc3545'}`,
+      border: `2px solid ${isReallyActive ? '#28a745' : '#dc3545'}`,
       marginBottom: '1rem'
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -57,49 +133,52 @@ export function SubscriptionStatus({ compact = false }: SubscriptionStatusProps)
             </h3>
             <span style={{
               padding: '0.2rem 0.5rem',
-              backgroundColor: isActive ? '#28a745' : '#dc3545',
+              backgroundColor: isReallyActive ? '#28a745' : '#dc3545',
               color: 'white',
               borderRadius: '12px',
               fontSize: '0.7rem',
               fontWeight: 'bold'
             }}>
-              {isActive ? 'ATIVO' : 'EXPIRADO'}
+              {isReallyActive ? 'ATIVO' : 'EXPIRADO'}
             </span>
           </div>
 
-          {subscription.plan === 'free' && (
-            <div style={{ marginBottom: '1rem' }}>
-              <div style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.5rem' }}>
-                ⏰ {daysRemaining > 0 ? `${daysRemaining} dias restantes` : 'Período gratuito expirado'}
-              </div>
-              <div style={{ fontSize: '0.8rem', color: '#666' }}>
-                Período gratuito até: {subscription.endDate.toLocaleDateString('pt-BR')}
-              </div>
+          <div style={{ marginBottom: '1rem' }}>
+            <div style={{ 
+              fontSize: '1.1rem', 
+              color: daysRemaining <= 7 ? '#dc3545' : daysRemaining <= 30 ? '#ff9500' : '#28a745',
+              fontWeight: '600',
+              marginBottom: '0.5rem' 
+            }}>
+              ⏰ {daysRemaining > 0 ? (
+                daysRemaining === 1 ? '1 dia restante' : `${daysRemaining} dias restantes`
+              ) : (
+                subscription.plan === 'premium' ? 'Assinatura expirada' : 'Período gratuito expirado'
+              )}
             </div>
-          )}
-
-          {/* Uso atual */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginTop: '1rem' }}>
-            <div>
-              <div style={{ fontSize: '0.8rem', color: '#666' }}>Vendas este mês</div>
-              <div style={{ fontWeight: 'bold', color: '#007bff' }}>
-                {usage.salesCount}
-                {subscription.plan === 'free' && ' / 1000'}
+            
+            {/* Barra de progresso */}
+            {daysRemaining > 0 && (
+              <div style={{
+                width: '100%',
+                height: '8px',
+                backgroundColor: '#e9ecef',
+                borderRadius: '4px',
+                overflow: 'hidden',
+                marginBottom: '0.5rem'
+              }}>
+                <div style={{
+                  width: `${Math.min(100, (daysRemaining / 30) * 100)}%`,
+                  height: '100%',
+                  backgroundColor: daysRemaining <= 7 ? '#dc3545' : daysRemaining <= 30 ? '#ff9500' : '#28a745',
+                  transition: 'width 0.3s ease',
+                  borderRadius: '4px'
+                }} />
               </div>
-            </div>
-            <div>
-              <div style={{ fontSize: '0.8rem', color: '#666' }}>Clientes</div>
-              <div style={{ fontWeight: 'bold', color: '#28a745' }}>
-                {usage.clientsCount}
-                {subscription.plan === 'free' && ' / 500'}
-              </div>
-            </div>
-            <div>
-              <div style={{ fontSize: '0.8rem', color: '#666' }}>Produtos</div>
-              <div style={{ fontWeight: 'bold', color: '#ffc107' }}>
-                {usage.productsCount}
-                {subscription.plan === 'free' && ' / 200'}
-              </div>
+            )}
+            
+            <div style={{ fontSize: '0.85rem', color: '#666' }}>
+              {subscription.plan === 'premium' ? 'Assinatura' : 'Período gratuito'} até: {subscription.endDate.toLocaleDateString('pt-BR')}
             </div>
           </div>
         </div>
@@ -139,7 +218,7 @@ export function SubscriptionStatus({ compact = false }: SubscriptionStatusProps)
         </div>
       )}
 
-      {!isActive && (
+      {daysRemaining <= 0 && (
         <div style={{
           marginTop: '1rem',
           padding: '1rem',
@@ -148,7 +227,7 @@ export function SubscriptionStatus({ compact = false }: SubscriptionStatusProps)
           borderRadius: '8px',
           color: '#721c24'
         }}>
-          🚫 <strong>Período gratuito expirado!</strong>
+          🚫 <strong>{subscription.plan === 'premium' ? 'Assinatura expirada!' : 'Período gratuito expirado!'}</strong>
           <br />
           Faça upgrade para Premium para continuar usando o sistema.
         </div>

@@ -3,14 +3,15 @@
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background-color: #f0f2f5;
+  background-color: #f5f6f8;
 }
 
 .formContainer {
-  background: #fff;
+  background: #ffffff;
   padding: 2rem 3rem;
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  border: 1px solid #e2e8f0;
   width: 100%;
   max-width: 400px;
   text-align: center;
@@ -18,12 +19,13 @@
 
 .formContainer header h1 {
   font-size: 1.8rem;
-  color: #333;
+  color: #1a1d23;
   margin-bottom: 0.5rem;
+  font-weight: 600;
 }
 
 .formContainer header p {
-  color: #666;
+  color: #4a5568;
   margin-bottom: 2rem;
 }
 
@@ -36,36 +38,40 @@
   display: block;
   margin-bottom: 0.5rem;
   font-weight: 600;
-  color: #444;
+  color: #1a1d23;
+  font-size: 0.95rem;
 }
 
 .inputGroup input {
   width: 100%;
   padding: 0.75rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
   font-size: 1rem;
+  transition: all 0.2s ease;
 }
 
 .inputGroup input:focus {
   outline: none;
-  border-color: #007bff;
-  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+  border-color: #3182ce;
+  box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.1);
 }
 
 button {
   width: 100%;
   padding: 0.75rem;
   border: none;
-  border-radius: 4px;
-  background-color: #007bff;
+  border-radius: 6px;
+  background-color: #2d3748;
   color: white;
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 button:hover {
-  background-color: #0056b3;
+  background-color: #1a202c;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }

@@ -1,6 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { SubscriptionGuard } from '../../components/SubscriptionGuard';
+import { useSubscriptionGuard } from '../../hooks/useSubscriptionGuard';
+import { useSubscription } from '../../contexts/SubscriptionContext';
+import { useWindowSize } from '../../hooks/useWindowSize';
+import { MobileButton } from '../../components/MobileButton';
+
 import { clientService } from '../../services/clientService';
 import toast from 'react-hot-toast';
 
@@ -21,7 +27,13 @@ interface Client {
 export function Clients() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { isMobile } = useWindowSize();
+  const { guardClient } = useSubscriptionGuard();
+  const { incrementUsage } = useSubscription();
+
   const [clients, setClients] = useState<Client[]>([]);
+  const [filteredClients, setFilteredClients] = useState<Client[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
@@ -37,9 +49,113 @@ export function Clients() {
     }
   });
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Reset input
+    e.target.value = '';
+
+    if (!user) return;
+
+    try {
+      setLoading(true);
+      const data = await file.arrayBuffer();
+      // Import dynamically to avoid loading if not used
+      const XLSX = await import('xlsx');
+      const workbook = XLSX.read(data);
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+      console.log('Dados do Excel (Clientes):', jsonData);
+
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const rawRow of jsonData as any[]) {
+        try {
+          // Normalizar chaves para minúsculas e sem espaços extras
+          const row: any = {};
+          Object.keys(rawRow).forEach(key => {
+            const cleanKey = key.trim().toLowerCase();
+            row[cleanKey] = rawRow[key];
+          });
+
+          // Mapeamento mais robusto para clientes
+          const clientData = {
+            name: row['nome'] || row['name'] || row['cliente'] || row['client'] || '',
+            email: row['email'] || row['e-mail'] || row['mail'] || '',
+            phone: row['telefone'] || row['phone'] || row['celular'] || row['fone'] || '',
+            address: {
+              street: row['endereço'] || row['endereco'] || row['address'] || row['rua'] || '',
+              city: row['cidade'] || row['city'] || '',
+              state: row['estado'] || row['state'] || row['uf'] || '',
+              zipCode: row['cep'] || row['zipcode'] || row['zip'] || ''
+            }
+          };
+
+          // Validações básicas
+          if (!clientData.name) {
+            console.warn('Cliente sem nome ignorado (verifique os cabeçalhos da planilha):', rawRow);
+            continue;
+          }
+
+          if (!clientData.email) {
+            console.warn('Cliente sem email ignorado:', rawRow);
+            continue;
+          }
+
+          if (!clientData.phone) {
+            console.warn('Cliente sem telefone ignorado:', rawRow);
+            continue;
+          }
+
+          // Criar cliente
+          await clientService.createClient(clientData, user.uid);
+
+          // Incrementar contador de uso
+          await incrementUsage('client');
+
+          successCount++;
+        } catch (err) {
+          console.error('Erro ao importar linha:', rawRow, err);
+          errorCount++;
+        }
+      }
+
+      toast.success(`${successCount} clientes importados com sucesso!`);
+      if (errorCount > 0) {
+        toast.error(`${errorCount} falhas na importação.`);
+      }
+      
+      loadClients();
+    } catch (error) {
+      console.error('Erro ao processar arquivo Excel:', error);
+      toast.error('Erro ao processar arquivo Excel.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadClients();
   }, []);
+
+  // Filtrar clientes em tempo real
+  useEffect(() => {
+    if (searchTerm.trim() === '') {
+      setFilteredClients(clients);
+    } else {
+      const filtered = clients.filter(client =>
+        client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        client.phone.includes(searchTerm)
+      );
+      setFilteredClients(filtered);
+    }
+  }, [searchTerm, clients]);
 
   const loadClients = async () => {
     if (!user) {
@@ -105,6 +221,13 @@ export function Clients() {
     e.preventDefault();
     if (!user) return;
 
+    // Verificar limites de assinatura antes de criar cliente (apenas para novos clientes)
+    if (!editingClient && !guardClient()) {
+      return;
+    }
+
+
+
     try {
       if (editingClient) {
         // Atualizar cliente existente no Firebase
@@ -113,6 +236,10 @@ export function Clients() {
       } else {
         // Criar novo cliente no Firebase
         await clientService.createClient(formData, user.uid);
+        
+        // Incrementar contador de uso
+        await incrementUsage('client');
+        
         toast.success('Cliente criado com sucesso!');
       }
       
@@ -163,7 +290,7 @@ export function Clients() {
             ...data,
             createdAt: data.createdAt?.toDate() || new Date(),
           };
-        });
+        }) as any[];
         
         // Filtrar vendas do cliente específico
         clientSales = firebaseSales.filter((sale: any) => {
@@ -257,9 +384,18 @@ export function Clients() {
 
     let message = `*Cliente: ${client.name}*\n\n` +
       `📧 Email: ${client.email}\n` +
-      `📱 Telefone: ${client.phone}\n` +
-      `📍 Endereço: ${client.address.street}, ${client.address.city} - ${client.address.state}\n` +
-      `📮 CEP: ${client.address.zipCode}\n\n`;
+      `📱 Telefone: ${client.phone}\n`;
+
+    // Adicionar endereço apenas se houver dados
+    if (client.address.street || client.address.city || client.address.state || client.address.zipCode) {
+      message += `📍 Endereço: `;
+      if (client.address.street) message += `${client.address.street}, `;
+      if (client.address.city) message += `${client.address.city}`;
+      if (client.address.state) message += ` - ${client.address.state}`;
+      message += `\n`;
+      if (client.address.zipCode) message += `📮 CEP: ${client.address.zipCode}\n`;
+    }
+    message += `\n`;
 
     if (clientSales.length > 0) {
       message += `💰 *HISTÓRICO DE COMPRAS*\n`;
@@ -374,45 +510,142 @@ export function Clients() {
   }
 
   return (
-    <div style={{ padding: '20px' }}>
+    <SubscriptionGuard feature="o módulo de clientes">
+      <div style={{ padding: '20px' }}>
       <div style={{ 
         display: 'flex', 
+        flexDirection: isMobile ? 'column' : 'row',
         justifyContent: 'space-between', 
-        alignItems: 'center',
+        alignItems: isMobile ? 'stretch' : 'center',
+        gap: isMobile ? '1rem' : '0',
         marginBottom: '2rem'
       }}>
         <div>
-          <h1>Clientes</h1>
-          <button
+          <h1 style={{ marginBottom: isMobile ? '0.5rem' : '0' }}>Clientes</h1>
+          <MobileButton
             onClick={() => navigate('/')}
-            style={{
-              padding: '0.5rem 1rem',
-              backgroundColor: '#6c757d',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              marginTop: '0.5rem'
-            }}
+            variant="secondary"
+            size="sm"
+            icon="←"
+            style={{ marginTop: '0.5rem' }}
           >
-            ← Voltar ao Dashboard
-          </button>
+            Voltar ao Dashboard
+          </MobileButton>
         </div>
         
-        <button
-          onClick={handleCreateClient}
-          style={{
-            padding: '0.75rem 1.5rem',
-            backgroundColor: '#28a745',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontWeight: '500'
-          }}
-        >
-          + Novo Cliente
-        </button>
+        <div className={isMobile ? 'btn-group-mobile' : ''} style={{ 
+          display: 'flex', 
+          gap: '1rem', 
+          alignItems: 'center',
+          flexDirection: isMobile ? 'column' : 'row'
+        }}>
+          <div style={{ display: 'none' }}>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileUpload}
+              accept=".xlsx, .xls"
+            />
+          </div>
+
+          <MobileButton
+            onClick={handleCreateClient}
+            variant="success"
+            icon="+"
+          >
+            Novo Cliente
+          </MobileButton>
+
+          <MobileButton
+            onClick={() => fileInputRef.current?.click()}
+            variant="secondary"
+            icon="📤"
+          >
+            Importar Excel
+          </MobileButton>
+
+          <MobileButton
+            onClick={() => {
+              const element = document.getElementById('excel-guide-clients');
+              if (element) {
+                element.scrollIntoView({ behavior: 'smooth' });
+              }
+            }}
+            variant="outline"
+            icon="❓"
+          >
+            Como Importar?
+          </MobileButton>
+        </div>
+      </div>
+
+      {/* Campo de Busca Inteligente */}
+      <div style={{
+        marginBottom: '2rem',
+        position: 'relative'
+      }}>
+        <div style={{ position: 'relative' }}>
+          <span style={{
+            position: 'absolute',
+            left: '1rem',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            fontSize: '1.2rem'
+          }}>
+            🔍
+          </span>
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Buscar por nome, email ou telefone..."
+            style={{
+              width: '100%',
+              padding: '1rem 1rem 1rem 3rem',
+              border: '2px solid #e1e5e9',
+              borderRadius: '12px',
+              fontSize: '1rem',
+              transition: 'all 0.3s ease',
+              outline: 'none'
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = '#007bff';
+              e.currentTarget.style.boxShadow = '0 0 0 3px rgba(0, 123, 255, 0.1)';
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = '#e1e5e9';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              style={{
+                position: 'absolute',
+                right: '1rem',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '1.2rem',
+                color: '#666',
+                padding: '0.25rem'
+              }}
+            >
+              ✕
+            </button>
+          )}
+        </div>
+        {searchTerm && (
+          <div style={{
+            marginTop: '0.5rem',
+            fontSize: '0.9rem',
+            color: '#666'
+          }}>
+            {filteredClients.length} {filteredClients.length === 1 ? 'cliente encontrado' : 'clientes encontrados'}
+          </div>
+        )}
       </div>
 
       {/* Formulário Modal */}
@@ -503,7 +736,7 @@ export function Clients() {
 
               <div style={{ marginBottom: '1rem' }}>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
-                  Endereço *
+                  Endereço
                 </label>
                 <input
                   type="text"
@@ -512,8 +745,7 @@ export function Clients() {
                     ...prev, 
                     address: { ...prev.address, street: e.target.value }
                   }))}
-                  required
-                  placeholder="Rua, número, bairro"
+                  placeholder="Rua, número, bairro (opcional)"
                   style={{
                     width: '100%',
                     padding: '0.75rem',
@@ -533,8 +765,7 @@ export function Clients() {
                     ...prev, 
                     address: { ...prev.address, city: e.target.value }
                   }))}
-                  required
-                  placeholder="Cidade"
+                  placeholder="Cidade (opcional)"
                   style={{
                     padding: '0.75rem',
                     border: '2px solid #e1e5e9',
@@ -549,8 +780,7 @@ export function Clients() {
                     ...prev, 
                     address: { ...prev.address, state: e.target.value }
                   }))}
-                  required
-                  placeholder="Estado"
+                  placeholder="Estado (opcional)"
                   style={{
                     padding: '0.75rem',
                     border: '2px solid #e1e5e9',
@@ -568,8 +798,7 @@ export function Clients() {
                     ...prev, 
                     address: { ...prev.address, zipCode: e.target.value }
                   }))}
-                  required
-                  placeholder="CEP"
+                  placeholder="CEP (opcional)"
                   style={{
                     width: '100%',
                     padding: '0.75rem',
@@ -580,34 +809,27 @@ export function Clients() {
                 />
               </div>
 
-              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-                <button
+              <div className="btn-group-mobile" style={{ 
+                display: 'flex', 
+                gap: '1rem', 
+                justifyContent: 'flex-end',
+                marginTop: '1.5rem',
+                flexDirection: isMobile ? 'column-reverse' : 'row'
+              }}>
+                <MobileButton
                   type="button"
                   onClick={() => setShowForm(false)}
-                  style={{
-                    padding: '0.75rem 1.5rem',
-                    backgroundColor: '#6c757d',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    cursor: 'pointer'
-                  }}
+                  variant="secondary"
                 >
                   Cancelar
-                </button>
-                <button
+                </MobileButton>
+                <MobileButton
                   type="submit"
-                  style={{
-                    padding: '0.75rem 1.5rem',
-                    backgroundColor: '#007bff',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    cursor: 'pointer'
-                  }}
+                  variant="success"
+                  icon={editingClient ? '✅' : '➕'}
                 >
-                  Salvar
-                </button>
+                  {editingClient ? 'Atualizar' : 'Salvar'}
+                </MobileButton>
               </div>
             </form>
           </div>
@@ -615,14 +837,24 @@ export function Clients() {
       )}
 
       {/* Lista de Clientes */}
-      {clients.length === 0 ? (
+      {filteredClients.length === 0 ? (
         <div style={{
           textAlign: 'center',
           padding: '3rem',
           color: '#666'
         }}>
-          <h3>Nenhum cliente cadastrado</h3>
-          <p>Clique em "Novo Cliente" para começar</p>
+          {searchTerm ? (
+            <>
+              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔍</div>
+              <h3>Nenhum cliente encontrado</h3>
+              <p>Tente buscar por outro nome, email ou telefone</p>
+            </>
+          ) : (
+            <>
+              <h3>Nenhum cliente cadastrado</h3>
+              <p>Clique em "Novo Cliente" para começar</p>
+            </>
+          )}
         </div>
       ) : (
         <div style={{
@@ -630,7 +862,7 @@ export function Clients() {
           gap: '1rem',
           gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))'
         }}>
-          {clients.map((client) => (
+          {filteredClients.map((client) => (
             <div
               key={client.id}
               style={{
@@ -657,92 +889,292 @@ export function Clients() {
                 <div style={{ marginBottom: '0.5rem' }}>
                   <strong>📱 Telefone:</strong> {client.phone}
                 </div>
-                <div>
-                  <strong>📍 Endereço:</strong><br />
-                  {client.address.street}<br />
-                  {client.address.city} - {client.address.state}<br />
-                  CEP: {client.address.zipCode}
-                </div>
+                {(client.address.street || client.address.city || client.address.state || client.address.zipCode) && (
+                  <div>
+                    <strong>📍 Endereço:</strong><br />
+                    {client.address.street && <>{client.address.street}<br /></>}
+                    {(client.address.city || client.address.state) && (
+                      <>{client.address.city}{client.address.city && client.address.state ? ' - ' : ''}{client.address.state}<br /></>
+                    )}
+                    {client.address.zipCode && <>CEP: {client.address.zipCode}</>}
+                  </div>
+                )}
               </div>
 
-              <div style={{
+              <div className={isMobile ? 'btn-group-mobile' : 'btn-group-mobile-row'} style={{
                 display: 'flex',
-                gap: '0.5rem',
-                flexWrap: 'wrap'
+                gap: '0.75rem',
+                flexWrap: 'wrap',
+                flexDirection: isMobile ? 'column' : 'row'
               }}>
-                <button
+                <MobileButton
                   onClick={() => handleEditClient(client)}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    backgroundColor: '#007bff',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '0.9rem'
-                  }}
+                  variant="primary"
+                  icon="✏️"
+                  size="sm"
                 >
-                  ✏️ Editar
-                </button>
+                  Editar
+                </MobileButton>
                 
-                <button
+                <MobileButton
                   onClick={() => {
                     toast.loading('Buscando histórico de vendas...', { id: 'share-client' });
                     handleShareClient(client).finally(() => {
                       toast.dismiss('share-client');
                     });
                   }}
+                  variant="success"
+                  icon="📱"
+                  size="sm"
                   style={{
-                    padding: '0.5rem 1rem',
-                    backgroundColor: '#25d366',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '0.9rem'
+                    background: 'linear-gradient(135deg, #128C7E 0%, #25d366 100%)'
                   }}
                 >
-                  📱 WhatsApp
-                </button>
+                  WhatsApp
+                </MobileButton>
                 
                 {/* Botão de debug - remover em produção */}
-                <button
-                  onClick={async () => {
-                    console.log('🔍 DEBUG: Testando busca de vendas para:', client.name);
-                    await handleShareClient(client);
-                  }}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    backgroundColor: '#6c757d',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '0.9rem'
-                  }}
-                >
-                  🔍 Debug
-                </button>
+                {process.env.NODE_ENV === 'development' && (
+                  <MobileButton
+                    onClick={async () => {
+                      console.log('🔍 DEBUG: Testando busca de vendas para:', client.name);
+                      await handleShareClient(client);
+                    }}
+                    variant="secondary"
+                    icon="🔍"
+                    size="sm"
+                  >
+                    Debug
+                  </MobileButton>
+                )}
                 
-                <button
+                <MobileButton
                   onClick={() => handleDeleteClient(client.id)}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    backgroundColor: '#dc3545',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '0.9rem'
-                  }}
+                  variant="danger"
+                  icon="🗑️"
+                  size="sm"
                 >
-                  🗑️ Excluir
-                </button>
+                  Excluir
+                </MobileButton>
               </div>
             </div>
           ))}
         </div>
       )}
-    </div>
+
+      {/* Guia de Importação Excel */}
+      <div 
+        id="excel-guide-clients"
+        style={{
+          marginTop: '4rem',
+          padding: '2rem',
+          backgroundColor: '#f8f9fa',
+          borderRadius: '12px',
+          border: '2px solid #e9ecef'
+        }}
+      >
+        <h2 style={{ 
+          color: '#495057', 
+          marginBottom: '1.5rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem'
+        }}>
+          👥 Como Importar Clientes via Excel
+        </h2>
+
+        <div style={{ marginBottom: '2rem' }}>
+          <h3 style={{ color: '#6c757d', marginBottom: '1rem' }}>📝 Estrutura da Planilha</h3>
+          <p style={{ marginBottom: '1rem', color: '#495057' }}>
+            Crie uma planilha Excel (.xlsx ou .xls) com as seguintes colunas na primeira linha:
+          </p>
+          
+          <div style={{
+            backgroundColor: 'white',
+            padding: '1.5rem',
+            borderRadius: '8px',
+            border: '1px solid #dee2e6',
+            marginBottom: '1.5rem'
+          }}>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+              gap: '1rem',
+              fontSize: '0.9rem'
+            }}>
+              <div>
+                <strong style={{ color: '#dc3545' }}>nome*</strong>
+                <div style={{ color: '#6c757d' }}>Nome completo</div>
+              </div>
+              <div>
+                <strong style={{ color: '#dc3545' }}>email*</strong>
+                <div style={{ color: '#6c757d' }}>Email válido</div>
+              </div>
+              <div>
+                <strong style={{ color: '#dc3545' }}>telefone*</strong>
+                <div style={{ color: '#6c757d' }}>Número de telefone</div>
+              </div>
+              <div>
+                <strong>endereco</strong>
+                <div style={{ color: '#6c757d' }}>Rua, número, bairro</div>
+              </div>
+              <div>
+                <strong>cidade</strong>
+                <div style={{ color: '#6c757d' }}>Nome da cidade</div>
+              </div>
+              <div>
+                <strong>estado</strong>
+                <div style={{ color: '#6c757d' }}>Estado ou UF</div>
+              </div>
+              <div>
+                <strong>cep</strong>
+                <div style={{ color: '#6c757d' }}>Código postal</div>
+              </div>
+            </div>
+            <div style={{ 
+              marginTop: '1rem', 
+              padding: '0.75rem', 
+              backgroundColor: '#fff3cd', 
+              borderRadius: '6px',
+              fontSize: '0.85rem',
+              color: '#856404'
+            }}>
+              <strong>* Campos obrigatórios:</strong> nome, email e telefone são obrigatórios
+            </div>
+          </div>
+        </div>
+
+        <div style={{ marginBottom: '2rem' }}>
+          <h3 style={{ color: '#6c757d', marginBottom: '1rem' }}>📊 Exemplo de Planilha</h3>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '1rem',
+            borderRadius: '8px',
+            border: '1px solid #dee2e6',
+            overflow: 'auto'
+          }}>
+            <table style={{
+              width: '100%',
+              borderCollapse: 'collapse',
+              fontSize: '0.85rem'
+            }}>
+              <thead>
+                <tr style={{ backgroundColor: '#e9ecef' }}>
+                  <th style={{ padding: '0.5rem', border: '1px solid #dee2e6', textAlign: 'left' }}>nome</th>
+                  <th style={{ padding: '0.5rem', border: '1px solid #dee2e6', textAlign: 'left' }}>email</th>
+                  <th style={{ padding: '0.5rem', border: '1px solid #dee2e6', textAlign: 'left' }}>telefone</th>
+                  <th style={{ padding: '0.5rem', border: '1px solid #dee2e6', textAlign: 'left' }}>endereco</th>
+                  <th style={{ padding: '0.5rem', border: '1px solid #dee2e6', textAlign: 'left' }}>cidade</th>
+                  <th style={{ padding: '0.5rem', border: '1px solid #dee2e6', textAlign: 'left' }}>estado</th>
+                  <th style={{ padding: '0.5rem', border: '1px solid #dee2e6', textAlign: 'left' }}>cep</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style={{ padding: '0.5rem', border: '1px solid #dee2e6' }}>João Silva</td>
+                  <td style={{ padding: '0.5rem', border: '1px solid #dee2e6' }}>joao@email.com</td>
+                  <td style={{ padding: '0.5rem', border: '1px solid #dee2e6' }}>(11) 99999-1234</td>
+                  <td style={{ padding: '0.5rem', border: '1px solid #dee2e6' }}>Rua das Flores, 123</td>
+                  <td style={{ padding: '0.5rem', border: '1px solid #dee2e6' }}>São Paulo</td>
+                  <td style={{ padding: '0.5rem', border: '1px solid #dee2e6' }}>SP</td>
+                  <td style={{ padding: '0.5rem', border: '1px solid #dee2e6' }}>01234-567</td>
+                </tr>
+                <tr style={{ backgroundColor: '#f8f9fa' }}>
+                  <td style={{ padding: '0.5rem', border: '1px solid #dee2e6' }}>Maria Santos</td>
+                  <td style={{ padding: '0.5rem', border: '1px solid #dee2e6' }}>maria@email.com</td>
+                  <td style={{ padding: '0.5rem', border: '1px solid #dee2e6' }}>(11) 88888-5678</td>
+                  <td style={{ padding: '0.5rem', border: '1px solid #dee2e6' }}>Av. Principal, 456</td>
+                  <td style={{ padding: '0.5rem', border: '1px solid #dee2e6' }}>Rio de Janeiro</td>
+                  <td style={{ padding: '0.5rem', border: '1px solid #dee2e6' }}>RJ</td>
+                  <td style={{ padding: '0.5rem', border: '1px solid #dee2e6' }}>20000-000</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div style={{ marginBottom: '2rem' }}>
+          <h3 style={{ color: '#6c757d', marginBottom: '1rem' }}>⚠️ Dicas Importantes</h3>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+            gap: '1rem'
+          }}>
+            <div style={{
+              backgroundColor: 'white',
+              padding: '1.5rem',
+              borderRadius: '8px',
+              border: '1px solid #dee2e6'
+            }}>
+              <h4 style={{ color: '#495057', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                📝 Formatação
+              </h4>
+              <ul style={{ margin: 0, paddingLeft: '1.2rem', color: '#6c757d' }}>
+                <li>Use a primeira linha para os cabeçalhos</li>
+                <li>Não deixe linhas vazias entre os dados</li>
+                <li>Use emails válidos (ex: nome@email.com)</li>
+                <li>Telefones podem ter ou não formatação</li>
+              </ul>
+            </div>
+
+            <div style={{
+              backgroundColor: 'white',
+              padding: '1.5rem',
+              borderRadius: '8px',
+              border: '1px solid #dee2e6'
+            }}>
+              <h4 style={{ color: '#495057', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                📱 Integração
+              </h4>
+              <ul style={{ margin: 0, paddingLeft: '1.2rem', color: '#6c757d' }}>
+                <li>Clientes importados aparecem nas vendas</li>
+                <li>Histórico de compras é vinculado automaticamente</li>
+                <li>Compartilhamento via WhatsApp disponível</li>
+              </ul>
+            </div>
+
+            <div style={{
+              backgroundColor: 'white',
+              padding: '1.5rem',
+              borderRadius: '8px',
+              border: '1px solid #dee2e6'
+            }}>
+              <h4 style={{ color: '#495057', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                🔄 Nomes Alternativos
+              </h4>
+              <ul style={{ margin: 0, paddingLeft: '1.2rem', color: '#6c757d', fontSize: '0.85rem' }}>
+                <li><strong>nome:</strong> name, cliente, client</li>
+                <li><strong>email:</strong> e-mail, mail</li>
+                <li><strong>telefone:</strong> phone, celular, fone</li>
+                <li><strong>endereco:</strong> address, rua</li>
+                <li><strong>estado:</strong> state, uf</li>
+                <li><strong>cep:</strong> zipcode, zip</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div style={{
+          backgroundColor: '#d1ecf1',
+          padding: '1.5rem',
+          borderRadius: '8px',
+          border: '1px solid #bee5eb'
+        }}>
+          <h4 style={{ color: '#0c5460', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            🚀 Passo a Passo
+          </h4>
+          <ol style={{ margin: 0, paddingLeft: '1.2rem', color: '#0c5460' }}>
+            <li style={{ marginBottom: '0.5rem' }}>Crie uma planilha Excel com as colunas acima</li>
+            <li style={{ marginBottom: '0.5rem' }}>Preencha os dados dos seus clientes</li>
+            <li style={{ marginBottom: '0.5rem' }}>Certifique-se de que nome, email e telefone estão preenchidos</li>
+            <li style={{ marginBottom: '0.5rem' }}>Salve o arquivo como .xlsx ou .xls</li>
+            <li style={{ marginBottom: '0.5rem' }}>Clique no botão "Importar Excel" acima</li>
+            <li style={{ marginBottom: '0.5rem' }}>Selecione seu arquivo e aguarde a importação</li>
+            <li>Pronto! Seus clientes serão importados automaticamente</li>
+          </ol>
+        </div>
+      </div>
+      </div>
+    </SubscriptionGuard>
   );
 }

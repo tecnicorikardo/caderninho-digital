@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { clientService } from '../../services/clientService';
-import { saleService } from '../../services/saleService';
-import { collection, query, where, getDocs, deleteDoc, doc, addDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, deleteDoc, doc, addDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import toast from 'react-hot-toast';
+import { SubscriptionStatus } from '../../components/SubscriptionStatus';
 
 export function Settings() {
   const navigate = useNavigate();
@@ -96,29 +96,34 @@ export function Settings() {
       await Promise.all(clientsDeletePromises);
       console.log(`${clientsSnapshot.docs.length} clientes removidos do Firebase`);
       
-      // 4. Apagar pagamentos relacionados às vendas do usuário
+      // 4. Apagar pagamentos do usuário
       console.log('Apagando pagamentos do Firebase...');
-      const saleIds = salesSnapshot.docs.map(doc => doc.id);
-      let paymentsDeleted = 0;
+      const paymentsQuery = query(
+        collection(db, 'payments'),
+        where('userId', '==', user.uid)
+      );
+      const paymentsSnapshot = await getDocs(paymentsQuery);
+      const paymentsDeletePromises = paymentsSnapshot.docs.map(docSnapshot => 
+        deleteDoc(doc(db, 'payments', docSnapshot.id))
+      );
+      await Promise.all(paymentsDeletePromises);
+      console.log(`${paymentsSnapshot.docs.length} pagamentos removidos do Firebase`);
       
-      if (saleIds.length > 0) {
-        // Buscar pagamentos relacionados às vendas do usuário
-        const allPaymentsSnapshot = await getDocs(collection(db, 'payments'));
-        const userPayments = allPaymentsSnapshot.docs.filter(doc => 
-          saleIds.includes(doc.data().saleId)
-        );
-        
-        const paymentsDeletePromises = userPayments.map(docSnapshot => 
-          deleteDoc(doc(db, 'payments', docSnapshot.id))
-        );
-        await Promise.all(paymentsDeletePromises);
-        paymentsDeleted = userPayments.length;
-      }
-      
-      console.log(`${paymentsDeleted} pagamentos removidos do Firebase`);
+      // 5. ✅ CORRIGIDO: Apagar produtos do Firebase
+      console.log('Apagando produtos do Firebase...');
+      const productsQuery = query(
+        collection(db, 'products'),
+        where('userId', '==', user.uid)
+      );
+      const productsSnapshot = await getDocs(productsQuery);
+      const productsDeletePromises = productsSnapshot.docs.map(docSnapshot => 
+        deleteDoc(doc(db, 'products', docSnapshot.id))
+      );
+      await Promise.all(productsDeletePromises);
+      console.log(`${productsSnapshot.docs.length} produtos removidos do Firebase`);
       
       toast.dismiss(loadingToast);
-      toast.success('Sistema resetado completamente! Todos os dados foram apagados.');
+      toast.success('Sistema resetado completamente! Todos os dados foram apagados (incluindo produtos).');
       setShowDeleteModal(false);
       setDeleteConfirmation('');
     } catch (error) {
@@ -178,9 +183,13 @@ export function Settings() {
       const clientsSnapshot = await getDocs(clientsQuery);
       console.log(`Clientes no Firebase: ${clientsSnapshot.docs.length} itens`);
       
-      // Verificar pagamentos (todos, pois não têm userId direto)
-      const paymentsSnapshot = await getDocs(collection(db, 'payments'));
-      console.log(`Pagamentos no Firebase (todos): ${paymentsSnapshot.docs.length} itens`);
+      // Verificar pagamentos do usuário
+      const paymentsQuery = query(
+        collection(db, 'payments'),
+        where('userId', '==', user.uid)
+      );
+      const paymentsSnapshot = await getDocs(paymentsQuery);
+      console.log(`Pagamentos no Firebase: ${paymentsSnapshot.docs.length} itens`);
       
       console.log('\n=== FIM DA VERIFICAÇÃO ===');
       
@@ -192,6 +201,119 @@ export function Settings() {
     }
   };
 
+  const syncStockExpenses = async () => {
+    if (!user) {
+      toast.error('Usuário não encontrado');
+      return;
+    }
+
+    try {
+      const loadingToast = toast.loading('Sincronizando despesas de estoque...');
+      
+      console.log('🔄 Iniciando sincronização de despesas de estoque...');
+      
+      // 1. Buscar todos os produtos do Firebase
+      const productsQuery = query(
+        collection(db, 'products'),
+        where('userId', '==', user.uid)
+      );
+      const productsSnapshot = await getDocs(productsQuery);
+      
+      console.log(`📦 ${productsSnapshot.docs.length} produtos encontrados`);
+      
+      // 2. Calcular valor total do estoque
+      let totalStockValue = 0;
+      const productsData: any[] = [];
+      
+      productsSnapshot.docs.forEach(doc => {
+        const data = doc.data();
+        const quantity = Number(data.quantity) || 0;
+        const costPrice = Number(data.costPrice) || 0;
+        const productValue = quantity * costPrice;
+        
+        totalStockValue += productValue;
+        productsData.push({
+          id: doc.id,
+          name: data.name,
+          quantity,
+          costPrice,
+          value: productValue
+        });
+        
+        console.log(`  - ${data.name}: ${quantity} × R$ ${costPrice.toFixed(2)} = R$ ${productValue.toFixed(2)}`);
+      });
+      
+      console.log(`💰 Valor total do estoque: R$ ${totalStockValue.toFixed(2)}`);
+      
+      // 3. Buscar despesas de estoque existentes
+      const savedTransactions = localStorage.getItem(`transactions_${user.uid}`);
+      const transactions = savedTransactions ? JSON.parse(savedTransactions) : [];
+      
+      const stockExpenses = transactions.filter((t: any) => 
+        t.type === 'despesa' && (t.stockGenerated || t.stockMovementGenerated)
+      );
+      
+      let totalExpenses = 0;
+      stockExpenses.forEach((expense: any) => {
+        totalExpenses += Number(expense.amount) || 0;
+      });
+      
+      console.log(`📊 Despesas de estoque registradas: R$ ${totalExpenses.toFixed(2)}`);
+      console.log(`📊 Total de despesas de estoque: ${stockExpenses.length}`);
+      
+      // 4. Calcular diferença
+      const difference = totalStockValue - totalExpenses;
+      console.log(`📉 Diferença: R$ ${difference.toFixed(2)}`);
+      
+      if (Math.abs(difference) < 0.01) {
+        toast.dismiss(loadingToast);
+        toast.success('✅ Despesas já estão sincronizadas!');
+        console.log('✅ Não há diferença para ajustar');
+        return;
+      }
+      
+      // 5. Criar transação de ajuste
+      if (difference > 0) {
+        // Falta registrar despesas
+        const adjustmentTransaction = {
+          id: `stock_adjustment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          type: 'despesa',
+          category: 'Fornecedores',
+          description: `Ajuste de Estoque - Sincronização (${productsData.length} produtos)`,
+          amount: difference,
+          date: new Date().toISOString(),
+          paymentMethod: 'dinheiro',
+          status: 'pago',
+          userId: user.uid,
+          createdAt: new Date().toISOString(),
+          financialType: 'comercial',
+          autoGenerated: true,
+          stockGenerated: true,
+          notes: 'Ajuste automático para sincronizar valor do estoque com despesas registradas'
+        };
+        
+        transactions.push(adjustmentTransaction);
+        localStorage.setItem(`transactions_${user.uid}`, JSON.stringify(transactions));
+        
+        console.log('✅ Transação de ajuste criada:', adjustmentTransaction);
+        
+        toast.dismiss(loadingToast);
+        toast.success(`✅ Ajuste de R$ ${difference.toFixed(2)} registrado!`);
+      } else {
+        // Há despesas a mais (não deveria acontecer, mas vamos avisar)
+        toast.dismiss(loadingToast);
+        toast.error(`⚠️ Há R$ ${Math.abs(difference).toFixed(2)} a mais em despesas. Verifique manualmente.`);
+        console.warn('⚠️ Despesas registradas são maiores que o valor do estoque');
+      }
+      
+      console.log('🎉 Sincronização concluída!');
+      
+    } catch (error) {
+      console.error('❌ Erro ao sincronizar despesas:', error);
+      toast.error('Erro ao sincronizar despesas');
+    }
+  };
+
   const exportData = async () => {
     if (!user) return;
 
@@ -200,15 +322,15 @@ export function Settings() {
       
       // Dados do localStorage
       const localData = {
-        transactions: JSON.parse(localStorage.getItem(`transactions_${user.uid}`) || '[]'),
-        products: JSON.parse(localStorage.getItem(`products_${user.uid}`) || '[]')
+        transactions: JSON.parse(localStorage.getItem(`transactions_${user.uid}`) || '[]')
       };
 
       // Dados do Firebase
       const firebaseData = {
         sales: [],
         clients: [],
-        payments: []
+        payments: [],
+        products: [] // ✅ CORRIGIDO: Adicionar produtos do Firebase
       };
 
       // Buscar vendas do Firebase
@@ -220,7 +342,7 @@ export function Settings() {
       firebaseData.sales = salesSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      }));
+      })) as any;
 
       // Buscar clientes do Firebase
       const clientsQuery = query(
@@ -231,42 +353,83 @@ export function Settings() {
       firebaseData.clients = clientsSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      }));
+      })) as any;
 
-      // Buscar pagamentos relacionados às vendas do usuário
-      const saleIds = firebaseData.sales.map(sale => sale.id);
-      if (saleIds.length > 0) {
-        const paymentsSnapshot = await getDocs(collection(db, 'payments'));
-        firebaseData.payments = paymentsSnapshot.docs
-          .filter(doc => saleIds.includes(doc.data().saleId))
-          .map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          }));
-      }
+      // Buscar pagamentos do usuário
+      const paymentsQuery = query(
+        collection(db, 'payments'),
+        where('userId', '==', user.uid)
+      );
+      const paymentsSnapshot = await getDocs(paymentsQuery);
+      firebaseData.payments = paymentsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as any;
+
+      // ✅ CORRIGIDO: Buscar produtos do Firebase
+      const productsQuery = query(
+        collection(db, 'products'),
+        where('userId', '==', user.uid)
+      );
+      const productsSnapshot = await getDocs(productsQuery);
+      firebaseData.products = productsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as any;
 
       const completeData = {
         ...localData,
         ...firebaseData,
         exportDate: new Date().toISOString(),
         userEmail: user.email,
-        version: '1.0.0'
+        version: '1.1.0' // ✅ Atualizado versão
       };
 
       const dataStr = JSON.stringify(completeData, null, 2);
+      const fileName = `backup-completo-${new Date().toISOString().split('T')[0]}.json`;
       const dataBlob = new Blob([dataStr], { type: 'application/json' });
-      const url = URL.createObjectURL(dataBlob);
       
+      // Tentar usar Web Share API primeiro (melhor para mobile)
+      if (navigator.share && navigator.canShare) {
+        try {
+          const file = new File([dataBlob], fileName, { type: 'application/json' });
+          
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              files: [file],
+              title: 'Backup Caderninho Digital',
+              text: `Backup completo - ${firebaseData.sales.length} vendas, ${firebaseData.clients.length} clientes, ${firebaseData.products.length} produtos`
+            });
+            
+            toast.dismiss(loadingToast);
+            toast.success(`Backup compartilhado! ${firebaseData.sales.length} vendas, ${firebaseData.clients.length} clientes, ${firebaseData.products.length} produtos`);
+            return;
+          }
+        } catch (shareError) {
+          console.log('Web Share API não disponível ou cancelado, usando download tradicional');
+        }
+      }
+      
+      // Fallback: Download tradicional
+      const url = URL.createObjectURL(dataBlob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `backup-completo-${new Date().toISOString().split('T')[0]}.json`;
+      link.download = fileName;
+      
+      // Para iOS Safari - adicionar atributo target
+      link.setAttribute('target', '_blank');
+      
       document.body.appendChild(link);
       link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      
+      // Aguardar um pouco antes de limpar (importante para mobile)
+      setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }, 100);
       
       toast.dismiss(loadingToast);
-      toast.success(`Backup completo exportado! ${firebaseData.sales.length} vendas, ${firebaseData.clients.length} clientes, ${localData.transactions.length} transações`);
+      toast.success(`Backup completo exportado! ${firebaseData.sales.length} vendas, ${firebaseData.clients.length} clientes, ${firebaseData.products.length} produtos, ${localData.transactions.length} transações`);
     } catch (error) {
       console.error('Erro ao exportar dados:', error);
       toast.error('Erro ao exportar dados: ' + (error as Error).message);
@@ -307,11 +470,6 @@ export function Settings() {
         importedCount += data.transactions.length;
       }
 
-      if (data.products && Array.isArray(data.products)) {
-        localStorage.setItem(`products_${user.uid}`, JSON.stringify(data.products));
-        importedCount += data.products.length;
-      }
-
       // Importar clientes para o Firebase
       if (data.clients && Array.isArray(data.clients)) {
         for (const client of data.clients) {
@@ -327,15 +485,37 @@ export function Settings() {
 
       // Importar vendas para o Firebase
       if (data.sales && Array.isArray(data.sales)) {
+        console.log('📊 Total de vendas no backup:', data.sales.length);
+        console.log('📝 Vendas fiadas no backup:', data.sales.filter((s: any) => s.paymentMethod === 'fiado').length);
+        
         for (const sale of data.sales) {
-          const { id, userId, createdAt, updatedAt, subtotal, total, remainingAmount, paymentStatus, installments, ...saleData } = sale;
+          const { id, ...saleDataWithoutId } = sale;
           try {
-            await saleService.createSale(saleData, user.uid);
+            // ✅ CORRIGIDO: Importar DIRETAMENTE preservando todos os campos
+            await addDoc(collection(db, 'sales'), {
+              ...saleDataWithoutId,
+              userId: user.uid,
+              // Converter timestamps se necessário
+              createdAt: saleDataWithoutId.createdAt?.seconds 
+                ? Timestamp.fromMillis(saleDataWithoutId.createdAt.seconds * 1000)
+                : Timestamp.now(),
+              updatedAt: Timestamp.now(),
+              // Garantir que valores numéricos sejam números
+              subtotal: Number(saleDataWithoutId.subtotal) || 0,
+              discount: Number(saleDataWithoutId.discount) || 0,
+              total: Number(saleDataWithoutId.total) || 0,
+              paidAmount: Number(saleDataWithoutId.paidAmount) || 0,
+              remainingAmount: Number(saleDataWithoutId.remainingAmount) || 0
+            });
             importedCount++;
+            console.log('✅ Venda importada:', sale.clientName || 'Sem cliente', '- Método:', sale.paymentMethod);
           } catch (error) {
+            console.error('❌ Erro ao importar venda:', sale.id, error);
             console.warn('Erro ao importar venda:', sale.id, error);
           }
         }
+        
+        console.log('✅ Total de vendas importadas:', importedCount);
       }
 
       // Importar pagamentos para o Firebase (se existirem)
@@ -348,6 +528,28 @@ export function Settings() {
             importedCount++;
           } catch (error) {
             console.warn('Erro ao importar pagamento:', payment.id, error);
+          }
+        }
+      }
+
+      // ✅ CORRIGIDO: Importar produtos para o Firebase
+      if (data.products && Array.isArray(data.products)) {
+        for (const product of data.products) {
+          const { id, userId, createdAt, updatedAt, ...productData } = product;
+          try {
+            await addDoc(collection(db, 'products'), {
+              ...productData,
+              costPrice: Number(productData.costPrice) || 0,
+              salePrice: Number(productData.salePrice) || 0,
+              quantity: Number(productData.quantity) || 0,
+              minQuantity: Number(productData.minQuantity) || 5,
+              userId: user.uid,
+              createdAt: Timestamp.now(),
+              updatedAt: Timestamp.now()
+            });
+            importedCount++;
+          } catch (error) {
+            console.warn('Erro ao importar produto:', product.name, error);
           }
         }
       }
@@ -396,6 +598,9 @@ export function Settings() {
         <h1 style={{ margin: 0, fontSize: '1.8rem', color: 'white' }}>⚙️ Configurações</h1>
       </div>
 
+      {/* Status da Assinatura */}
+      <SubscriptionStatus />
+
       {/* Seção Dados */}
       <div style={{
         backgroundColor: 'rgba(255, 255, 255, 0.95)',
@@ -427,6 +632,41 @@ export function Settings() {
               ✅ Validação: Verifica integridade antes da importação<br/>
               ⚠️ Importante: Faça backup antes de importar dados
             </div>
+          </div>
+
+          {/* Sincronizar Despesas de Estoque */}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '1rem',
+            backgroundColor: '#fff3cd',
+            borderRadius: '8px',
+            border: '1px solid #ffc107'
+          }}>
+            <div>
+              <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>
+                🔄 Sincronizar Despesas de Estoque
+              </div>
+              <div style={{ fontSize: '0.9rem', color: '#666' }}>
+                Ajusta as despesas para corresponder ao valor real do estoque
+              </div>
+            </div>
+            
+            <button
+              onClick={syncStockExpenses}
+              style={{
+                padding: '0.75rem 1.5rem',
+                backgroundColor: '#ffc107',
+                color: '#000',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontWeight: 'bold'
+              }}
+            >
+              🔄 Sincronizar
+            </button>
           </div>
 
           {/* Verificar Dados */}

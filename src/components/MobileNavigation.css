@@ -1,0 +1,163 @@
+/* Navegação Mobile - Só aparece no app */
+.mobile-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: #ffffff;
+  border-bottom: 1px solid #e0e0e0;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  z-index: 1000;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.back-button {
+  background: none;
+  border: none;
+  font-size: 16px;
+  color: #007AFF;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 6px;
+  transition: background-color 0.2s;
+}
+
+.back-button:hover {
+  background-color: #f0f0f0;
+}
+
+.back-button:active {
+  background-color: #e0e0e0;
+}
+
+.page-title {
+  flex: 1;
+  text-align: center;
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+}
+
+/* Navegação Bottom */
+.mobile-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 70px;
+  background: #ffffff;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  z-index: 1000;
+  box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.1);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 8px;
+  transition: all 0.2s;
+  min-width: 60px;
+  color: #666;
+}
+
+.nav-item:hover {
+  background-color: #f0f0f0;
+}
+
+.nav-item.active {
+  color: #007AFF;
+  background-color: #E3F2FD;
+}
+
+.nav-icon {
+  font-size: 20px;
+  margin-bottom: 2px;
+}
+
+.nav-label {
+  font-size: 11px;
+  font-weight: 500;
+  text-align: center;
+}
+
+/* Espaçador para não sobrepor conteúdo */
+.mobile-nav-spacer {
+  height: 70px;
+  width: 100%;
+}
+
+/* Ajuste do body para mobile */
+body.mobile {
+  padding-top: 60px; /* Espaço para header */
+  padding-bottom: 0; /* Espaço gerenciado pelo spacer */
+}
+
+/* Responsivo - esconder em telas grandes */
+@media (min-width: 768px) {
+  .mobile-header,
+  .mobile-bottom-nav,
+  .mobile-nav-spacer {
+    display: none;
+  }
+  
+  body.mobile {
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+}
+
+/* Ajustes para iOS */
+.ios .mobile-bottom-nav {
+  padding-bottom: max(env(safe-area-inset-bottom), 20px);
+}
+
+.ios .mobile-header {
+  padding-top: env(safe-area-inset-top);
+  height: calc(60px + env(safe-area-inset-top));
+}
+
+.ios body.mobile {
+  padding-top: calc(60px + env(safe-area-inset-top));
+}
+
+/* Ajustes para Android */
+.android .mobile-header {
+  background: #f8f9fa;
+}
+
+.android .nav-item.active {
+  color: #4CAF50;
+  background-color: #E8F5E8;
+}
+
+/* Animações suaves */
+.nav-item {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.back-button {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Estados de toque para mobile */
+.nav-item:active {
+  transform: scale(0.95);
+}
+
+.back-button:active {
+  transform: scale(0.95);
+}

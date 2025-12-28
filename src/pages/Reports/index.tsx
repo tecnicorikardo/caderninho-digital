@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { SubscriptionGuard } from '../../components/SubscriptionGuard';
+import EmailReportModal from '../../components/EmailReportModal';
 import toast from 'react-hot-toast';
 
 interface Sale {
@@ -110,8 +112,8 @@ function SimpleAI({ rawData }: { rawData: any }) {
     
     // Análise básica
     if (rawData.transactions.length > 0) {
-      const receitas = rawData.transactions.filter(t => t.type === 'receita').reduce((sum, t) => sum + t.amount, 0);
-      const despesas = rawData.transactions.filter(t => t.type === 'despesa').reduce((sum, t) => sum + t.amount, 0);
+      const receitas = rawData.transactions.filter((t: any) => t.type === 'receita').reduce((sum: number, t: any) => sum + t.amount, 0);
+      const despesas = rawData.transactions.filter((t: any) => t.type === 'despesa').reduce((sum: number, t: any) => sum + t.amount, 0);
       const saldo = receitas - despesas;
       
       if (saldo > 0) {
@@ -122,7 +124,7 @@ function SimpleAI({ rawData }: { rawData: any }) {
     }
     
     if (rawData.sales.length > 0) {
-      const totalVendas = rawData.sales.reduce((sum, s) => sum + (s.total || 0), 0);
+      const totalVendas = rawData.sales.reduce((sum: number, s: any) => sum + (s.total || 0), 0);
       const ticketMedio = totalVendas / rawData.sales.length;
       newInsights.push(`📊 ${rawData.sales.length} vendas realizadas - Ticket médio: R$ ${ticketMedio.toFixed(2)}`);
     }
@@ -132,7 +134,7 @@ function SimpleAI({ rawData }: { rawData: any }) {
     }
     
     if (rawData.products.length > 0) {
-      const produtosBaixoEstoque = rawData.products.filter(p => (p.quantity || 0) <= 5).length;
+      const produtosBaixoEstoque = rawData.products.filter((p: any) => (p.quantity || 0) <= 5).length;
       if (produtosBaixoEstoque > 0) {
         newInsights.push(`⚠️ ${produtosBaixoEstoque} produtos com estoque baixo - Reabastecer urgente`);
       } else {
@@ -214,6 +216,7 @@ export function Reports() {
     startDate: new Date(new Date().getFullYear() - 1, 0, 1).toISOString().split('T')[0], // 1 ano atrás
     endDate: new Date().toISOString().split('T')[0]
   });
+  const [showEmailModal, setShowEmailModal] = useState(false);
 
   useEffect(() => {
     generateReport();
@@ -297,7 +300,7 @@ export function Reports() {
       })) : [];
 
       // Salvar dados brutos para a IA
-      setRawData({ sales, clients, products, transactions });
+      setRawData({ sales: sales as any, clients: clients as any, products: products as any, transactions: transactions as any });
 
       // Filtrar vendas por data
       const startDate = new Date(dateFilter.startDate);
@@ -420,7 +423,7 @@ export function Reports() {
       
       const clientStats = new Map();
       
-      sales.forEach((sale, index) => {
+      sales.forEach((sale) => {
         // Usar múltiplas formas de identificar o cliente
         let clientKey = 'avulso';
         let clientName = 'Cliente Avulso';
@@ -467,11 +470,11 @@ export function Reports() {
       // Produtos mais vendidos (usar TODAS as vendas, não filtradas)
       const productStats = new Map();
       
-      sales.forEach((sale, saleIndex) => {
+      sales.forEach((sale) => {
         
         // Verificar se a venda tem produtos
         if (sale.products && Array.isArray(sale.products) && sale.products.length > 0) {
-          sale.products.forEach((product, productIndex) => {
+          sale.products.forEach((product) => {
             if (product && product.name && product.name.trim()) {
               const productKey = product.name.trim();
               
@@ -533,9 +536,9 @@ export function Reports() {
           status = sale.paymentStatus;
         } else {
           // Calcular status baseado nos dados disponíveis
-          const total = sale.total || (sale.price * sale.quantity) || 0;
+          const total = sale.total || 0;
           const paidAmount = sale.paidAmount || total;
-          const remainingAmount = sale.remainingAmount || 0;
+          // const _remainingAmount = sale.remainingAmount || 0; // Não utilizado
           
           if (sale.paymentMethod === 'fiado') {
             if (paidAmount >= total) {
@@ -676,8 +679,61 @@ Produtos em Falta: ${reportData.outOfStockProducts}
     );
   }
 
+  // Preparar dados para envio de email
+  const prepareEmailReport = () => {
+    // Filtrar vendas pelo período selecionado
+    const startDate = new Date(dateFilter.startDate);
+    const endDate = new Date(dateFilter.endDate);
+    endDate.setHours(23, 59, 59, 999);
+    
+    const filteredSales = rawData.sales.filter((sale: any) => {
+      const saleDate = new Date(sale.createdAt);
+      return saleDate >= startDate && saleDate <= endDate;
+    });
+
+    // Calcular vendas de hoje
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+    
+    const salesToday = rawData.sales.filter((sale: any) => {
+      const saleDate = new Date(sale.createdAt);
+      return saleDate >= today && saleDate <= todayEnd;
+    });
+    
+    const totalSalesToday = salesToday.reduce((sum: number, sale: any) => {
+      return sum + (sale.paidAmount || sale.total || 0);
+    }, 0);
+
+    return {
+      period: `${new Date(dateFilter.startDate).toLocaleDateString('pt-BR')} - ${new Date(dateFilter.endDate).toLocaleDateString('pt-BR')}`,
+      // Vendas de hoje
+      totalSalesToday: totalSalesToday,
+      salesCountToday: salesToday.length,
+      // Totais gerais (todas as vendas, não filtradas)
+      totalSales: reportData.totalRevenue,
+      salesCount: reportData.totalSales,
+      averageTicket: reportData.averageTicket,
+      // Lista de vendas do período filtrado
+      sales: filteredSales.map((sale: any) => ({
+        date: sale.createdAt,
+        clientName: sale.clientName || 'Venda Direta',
+        productName: sale.products && sale.products.length > 0 
+          ? sale.products.map((p: any) => p.name).join(', ')
+          : 'Venda Livre',
+        quantity: sale.products && sale.products.length > 0
+          ? sale.products.reduce((sum: number, p: any) => sum + (p.quantity || 1), 0)
+          : 1,
+        total: sale.paidAmount || sale.total || 0,
+        paymentMethod: sale.paymentMethod,
+      })),
+    };
+  };
+
   return (
-    <div style={{ padding: '20px' }}>
+    <SubscriptionGuard feature="o módulo de relatórios">
+      <div style={{ padding: '20px' }}>
       <div style={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
@@ -702,20 +758,40 @@ Produtos em Falta: ${reportData.outOfStockProducts}
           </button>
         </div>
         
-        <button
-          onClick={exportReport}
-          style={{
-            padding: '0.75rem 1.5rem',
-            backgroundColor: '#28a745',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontWeight: '500'
-          }}
-        >
-          📄 Exportar Relatório
-        </button>
+        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+          <button
+            onClick={exportReport}
+            style={{
+              padding: '0.75rem 1.5rem',
+              backgroundColor: '#38a169',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontWeight: 600,
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+            }}
+          >
+            📄 Exportar Relatório
+          </button>
+
+          <button
+            onClick={() => setShowEmailModal(true)}
+            disabled={!reportData || reportData.totalSales === 0}
+            style={{
+              padding: '0.75rem 1.5rem',
+              backgroundColor: (!reportData || reportData.totalSales === 0) ? '#a0aec0' : '#3182ce',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: (!reportData || reportData.totalSales === 0) ? 'not-allowed' : 'pointer',
+              fontWeight: 600,
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+            }}
+          >
+            📧 Enviar por Email
+          </button>
+        </div>
       </div>
 
       {/* Filtros de Data */}
@@ -1235,6 +1311,16 @@ Produtos em Falta: ${reportData.outOfStockProducts}
       <div style={{ marginBottom: '2rem' }}>
         <SimpleAI rawData={rawData} />
       </div>
-    </div>
+
+      {/* Modal de Email */}
+      <EmailReportModal
+        isOpen={showEmailModal}
+        onClose={() => setShowEmailModal(false)}
+        reportType="sales"
+        reportData={prepareEmailReport()}
+        defaultSubject={`Relatório Completo - ${dateFilter.startDate} a ${dateFilter.endDate}`}
+      />
+      </div>
+    </SubscriptionGuard>
   );
 }

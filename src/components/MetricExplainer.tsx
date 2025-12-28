@@ -252,7 +252,7 @@ export function BusinessMetricsExplainer({ data }: { data: any }) {
             value={metricData.value}
             explanation={metricData.explanation}
             tips={metricData.tips}
-            trend={metricData.trend}
+            trend={metricData.trend as 'up' | 'down' | 'stable' | undefined}
             color={metricData.color}
           />
         ))}
