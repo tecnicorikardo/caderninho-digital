@@ -15,6 +15,7 @@ interface UserData {
     startDate: Date;
     endDate: Date;
     amountPaid?: number;
+    paymentMethod?: string;
   };
 }
 
@@ -32,6 +33,7 @@ export function AdminDashboard() {
   const [messageTitle, setMessageTitle] = useState('');
   const [messageContent, setMessageContent] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [pendingUsers, setPendingUsers] = useState<UserData[]>([]);
 
   useEffect(() => {
     checkAdminAccess();
@@ -112,6 +114,10 @@ export function AdminDashboard() {
       
       console.log('✅ Total de usuários carregados:', usersData.length);
       setUsers(usersData);
+
+      // Filtrar pendentes
+      const pending = usersData.filter(u => u.subscription?.status === 'pending');
+      setPendingUsers(pending);
     } catch (error) {
       console.error('Erro ao carregar usuários:', error);
       toast.error('Erro ao carregar usuários');
@@ -235,6 +241,84 @@ export function AdminDashboard() {
       } else {
         toast.error('❌ Erro ao desativar premium: ' + error.message);
       }
+    }
+
+  };
+
+  const approvePayment = async (userId: string, amount: number) => {
+    if (!confirm('Confirmar pagamento e ativar Premium?')) return;
+
+    try {
+      const now = new Date();
+      let endDate = new Date();
+      
+      // Lógica de cálculo (mesma do Context, mas server-side logic here basically)
+      let months = 0;
+      if (amount >= 200) {
+        months = 14; // Promo
+      } else {
+        months = Math.floor(amount / 20) || 1;
+      }
+      
+      endDate.setDate(endDate.getDate() + (months * 30));
+
+      const subscriptionData = {
+        plan: 'premium',
+        status: 'active',
+        startDate: now,
+        endDate: endDate,
+        managedBy: user?.uid,
+        lastUpdate: now,
+        amountPaid: amount,
+        paymentMethod: 'pix_approved'
+      };
+
+      await setDoc(doc(db, 'subscriptions', userId), subscriptionData);
+
+      // Notificar usuário
+      await addDoc(collection(db, 'notifications'), {
+        userId: userId,
+        title: '✅ Pagamento Aprovado!',
+        message: `Seu plano Premium foi ativado com sucesso por ${months} meses. Aproveite!`,
+        type: 'payment_approved',
+        read: false,
+        createdAt: now
+      });
+
+      toast.success('Pagamento aprovado e plano ativado!');
+      loadUsers();
+    } catch (error: any) {
+      toast.error('Erro ao aprovar: ' + error.message);
+    }
+  };
+
+  const rejectPayment = async (userId: string) => {
+    if (!confirm('Rejeitar solicitação de pagamento?')) return;
+    
+    try {
+      // Reverter para free/trial expirado ou o que estava antes
+      // Por simplicidade, volta para free basic
+      await setDoc(doc(db, 'subscriptions', userId), {
+        plan: 'free',
+        status: 'cancelled',
+        startDate: new Date(),
+        endDate: new Date()
+      }, { merge: true });
+
+      // Notificar usuário
+      await addDoc(collection(db, 'notifications'), {
+        userId: userId,
+        title: '❌ Pagamento não identificado',
+        message: 'Não identificamos seu pagamento PIX. Por favor, entre em contato ou tente novamente.',
+        type: 'payment_rejected',
+        read: false,
+        createdAt: new Date()
+      });
+
+      toast.success('Solicitação rejeitada.');
+      loadUsers();
+    } catch (error) {
+      toast.error('Erro ao rejeitar.');
     }
   };
 
@@ -556,6 +640,75 @@ export function AdminDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Seção de Aprovações Pendentes */}
+      {pendingUsers.length > 0 && (
+        <div style={{ 
+          marginBottom: '2rem',
+          padding: '1.5rem',
+          backgroundColor: '#fff3cd',
+          border: '1px solid #ffeeba',
+          borderRadius: '12px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+        }}>
+          <h2 style={{ margin: '0 0 1rem 0', color: '#856404', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            ⏳ Aprovações Pendentes ({pendingUsers.length})
+          </h2>
+          <div style={{ display: 'grid', gap: '1rem' }}>
+            {pendingUsers.map(u => (
+              <div key={u.uid} style={{ 
+                backgroundColor: 'white', 
+                padding: '1rem', 
+                borderRadius: '8px', 
+                display: 'flex', 
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '1rem'
+              }}>
+                <div>
+                  <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{u.email}</div>
+                  <div style={{ color: '#666' }}>
+                    Info: {u.subscription?.amountPaid ? `R$ ${u.subscription.amountPaid}` : 'Valor não inf.'} - 
+                    {u.subscription?.paymentMethod || 'PIX'}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button
+                    onClick={() => approvePayment(u.uid, u.subscription?.amountPaid || 20)}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      backgroundColor: '#28a745',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    ✅ Aprovar
+                  </button>
+                  <button
+                    onClick={() => rejectPayment(u.uid)}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      backgroundColor: '#dc3545',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    ❌ Rejeitar
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
 
       {/* Filtros */}
       <div style={{

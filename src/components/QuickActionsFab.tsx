@@ -1,7 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-export function QuickActionsFab() {
+interface QuickActionsFabProps {
+  onAiClick?: () => void;
+}
+
+export function QuickActionsFab({ onAiClick }: QuickActionsFabProps) {
   const [isOpen, setIsOpen] = useState(false);
   const navigate = useNavigate();
   const fabRef = useRef<HTMLDivElement>(null);
@@ -121,6 +125,37 @@ export function QuickActionsFab() {
           </div>
         ))}
       </div>
+
+
+
+      {/* Botão da IA - Inteligência Artificial */}
+      {onAiClick && (
+        <button
+          onClick={onAiClick}
+          style={{
+            width: '50px',
+            height: '50px',
+            borderRadius: '50%',
+            background: 'linear-gradient(135deg, #8b5cf6 0%, #d946ef 100%)', // Gradiente Roxo/Rosa
+            border: 'none',
+            color: 'white',
+            fontSize: '1.5rem',
+            cursor: 'pointer',
+            boxShadow: '0 4px 15px rgba(139, 92, 246, 0.4)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: '0.75rem',
+            zIndex: 1000,
+            transition: 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
+          }}
+          onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.1) rotate(10deg)'}
+          onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1) rotate(0deg)'}
+          title="Abrir Assistente IA"
+        >
+          🤖
+        </button>
+      )}
 
       {/* Main FAB Button */}
       <button

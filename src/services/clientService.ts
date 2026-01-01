@@ -1,13 +1,14 @@
-import { 
-  collection, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  doc, 
-  getDocs, 
-  query, 
+import {
+  collection,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  query,
   where,
-  Timestamp 
+  Timestamp
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
@@ -51,12 +52,35 @@ export const clientService = {
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now()
       });
-      
+
       console.log('✅ Cliente criado:', docRef.id);
-      
+
       return docRef.id;
     } catch (error) {
       console.error('Erro ao criar cliente:', error);
+      throw error;
+    }
+  },
+
+  // Buscar cliente por ID
+  async getClientById(clientId: string): Promise<Client | null> {
+    try {
+      const clientRef = doc(db, COLLECTION_NAME, clientId);
+      const clientSnap = await getDoc(clientRef);
+
+      if (clientSnap.exists()) {
+        const data = clientSnap.data();
+        return {
+          id: clientSnap.id,
+          ...data,
+          createdAt: data.createdAt?.toDate() || new Date(),
+          updatedAt: data.updatedAt?.toDate() || new Date()
+        } as Client;
+      } else {
+        return null;
+      }
+    } catch (error) {
+      console.error('Erro ao buscar cliente por ID:', error);
       throw error;
     }
   },
@@ -68,10 +92,10 @@ export const clientService = {
         collection(db, COLLECTION_NAME),
         where('userId', '==', userId)
       );
-      
+
       const querySnapshot = await getDocs(q);
       const clients: Client[] = [];
-      
+
       querySnapshot.forEach((doc) => {
         const data = doc.data();
         clients.push({
@@ -81,7 +105,7 @@ export const clientService = {
           updatedAt: data.updatedAt?.toDate() || new Date()
         } as Client);
       });
-      
+
       // Ordenar no cliente para evitar problemas de índice
       return clients.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
     } catch (error) {

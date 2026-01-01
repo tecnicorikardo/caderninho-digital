@@ -1,3 +1,6 @@
+import { functions } from '../config/firebase';
+import { httpsCallable } from 'firebase/functions';
+
 // Serviço de email simplificado usando mailto (sempre funciona)
 export interface EmailReportData {
   to: string;
@@ -5,6 +8,22 @@ export interface EmailReportData {
   reportType: 'sales' | 'stock' | 'fiados' | 'general';
   reportData: any;
 }
+
+/**
+ * Envia relatório por email usando Cloud Function (Servidor)
+ */
+export const sendReportViaServer = async (data: EmailReportData): Promise<{ success: boolean; message: string }> => {
+  try {
+    console.log('🌐 Tentando enviar via servidor...', data);
+    const sendEmailFn = httpsCallable(functions, 'sendReportEmail');
+    const response = await sendEmailFn(data);
+    console.log('✅ Retorno do servidor:', response.data);
+    return response.data as { success: boolean; message: string };
+  } catch (error) {
+    console.error('❌ Erro no envio via servidor:', error);
+    throw error;
+  }
+};
 
 /**
  * Envia relatório por email usando mailto (abre cliente de email padrão)

@@ -1,16 +1,23 @@
-// Service Worker para notificações push
-// Necessário para notificações funcionarem no celular
+// Service Worker para PWA e Notificações Push
+// Versão atualizada para PagarMe - 31/12/2025
+const CACHE_NAME = 'caderninho-v3-pagarme-2025'; // Nova versão para PagarMe
+const BASE_URL = self.registration.scope;
 
-const CACHE_NAME = 'caderninho-v1';
 const urlsToCache = [
   '/',
   '/index.html',
-  '/manifest.json'
+  '/manifest.json',
+  '/icon.svg',
+  '/icon-192.jpg',
+  '/icon-512.jpg'
 ];
 
 // Instalar Service Worker
 self.addEventListener('install', (event) => {
   console.log('🔧 Service Worker: Instalando...');
+  // Força o SW a ativar imediatamente
+  self.skipWaiting();
+
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
@@ -18,46 +25,98 @@ self.addEventListener('install', (event) => {
         return cache.addAll(urlsToCache);
       })
   );
-  self.skipWaiting();
 });
 
 // Ativar Service Worker
 self.addEventListener('activate', (event) => {
   console.log('✅ Service Worker: Ativado');
+  // Reivindica o controle dos clientes imediatamente
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
-            console.log('🗑️ Service Worker: Removendo cache antigo:', cacheName);
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    })
+    Promise.all([
+      self.clients.claim(),
+      caches.keys().then((cacheNames) => {
+        return Promise.all(
+          cacheNames.map((cacheName) => {
+            if (cacheName !== CACHE_NAME) {
+              console.log('🗑️ Service Worker: Removendo cache antigo:', cacheName);
+              return caches.delete(cacheName);
+            }
+          })
+        );
+      })
+    ])
   );
-  return self.clients.claim();
 });
 
-// Interceptar requisições
+// Estratégia de Cache: Network First para HTML, Cache First para estáticos
 self.addEventListener('fetch', (event) => {
-  event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        // Cache hit - retornar resposta do cache
-        if (response) {
-          return response;
+  const request = event.request;
+  const url = new URL(request.url);
+
+  // Ignorar requisições não-GET e chrome-extension
+  if (request.method !== 'GET' || url.protocol === 'chrome-extension:') {
+    return;
+  }
+
+  // ESTRATÉGIA 1: Network First para Navegação (HTML)
+  // Isso garante que o usuário sempre receba a versão mais nova do index.html
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .then((networkResponse) => {
+          return caches.open(CACHE_NAME).then((cache) => {
+            cache.put(request, networkResponse.clone());
+            return networkResponse;
+          });
+        })
+        .catch(() => {
+          console.log('⚠️ Offline: Retornando cache para navegação');
+          return caches.match(request) // Tenta URL exata
+            .then(response => response || caches.match('/index.html')); // Fallback para index.html
+        })
+    );
+    return;
+  }
+
+  // ESTRATÉGIA 2: Cache First para Assets (JS, CSS, Imagens)
+  // Se estiver no cache, retorna rápido. Se não, busca na rede e cacheia.
+  if (
+    url.pathname.match(/\.(js|css|png|jpg|jpeg|svg|ico)$/) ||
+    url.pathname.includes('/assets/')
+  ) {
+    event.respondWith(
+      caches.match(request).then((cachedResponse) => {
+        if (cachedResponse) {
+          return cachedResponse;
         }
-        return fetch(event.request);
-      }
-    )
+        return fetch(request).then((networkResponse) => {
+          // Não cachear respostas inválidas ou não-sucesso
+          if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
+            return networkResponse;
+          }
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(request, responseToCache);
+          });
+          return networkResponse;
+        });
+      })
+    );
+    return;
+  }
+
+  // Default: Network First com fallback simples
+  event.respondWith(
+    fetch(request).catch(() => caches.match(request))
   );
 });
+
+// --- LÓGICA DE NOTIFICAÇÕES PUSH (Mantida Original) ---
 
 // Receber notificações push
 self.addEventListener('push', (event) => {
   console.log('📬 Service Worker: Push recebido');
-  
+
   let data = {};
   if (event.data) {
     try {
@@ -90,7 +149,7 @@ self.addEventListener('push', (event) => {
 // Clique na notificação
 self.addEventListener('notificationclick', (event) => {
   console.log('🖱️ Service Worker: Notificação clicada');
-  
+
   event.notification.close();
 
   event.waitUntil(
@@ -116,4 +175,4 @@ self.addEventListener('notificationclose', (event) => {
   console.log('🔕 Service Worker: Notificação fechada');
 });
 
-console.log('✅ Service Worker carregado');
+console.log('✅ Service Worker v2 (Network First) carregado');

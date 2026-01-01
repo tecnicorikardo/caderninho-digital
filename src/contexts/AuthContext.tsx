@@ -52,15 +52,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const userDoc = await getDoc(userDocRef);
       
       if (!userDoc.exists()) {
+        const isSuperAdmin = user.email === 'tecnicorikardo@gmail.com';
+        
         // Criar documento do usuário se não existir
         await setDoc(userDocRef, {
           email: user.email,
-          role: 'user',
+          role: isSuperAdmin ? 'admin' : 'user',
           createdAt: new Date(),
           lastLogin: new Date()
         });
-        console.log('✅ Documento do usuário criado no Firestore');
+        console.log('✅ Documento do usuário criado no Firestore. Admin?', isSuperAdmin);
       } else {
+        // Se for o email do admin e não tiver role admin, atualizar
+        if (user.email === 'tecnicorikardo@gmail.com') {
+          const userData = userDoc.data();
+          // Lógica de segurança: Apenas logar, não promover automaticamente mais.
+          // Se precisar promover novamente, deve ser feito via Console do Firebase.
+          console.log('👑 Admin logado:', userData.role);
+        }
+
         // Atualizar último login
         await setDoc(userDocRef, {
           lastLogin: new Date()

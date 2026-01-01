@@ -6,7 +6,7 @@ import { sendReportByEmail } from './emailService';
 export interface MobileEmailOptions {
   to: string;
   subject: string;
-  reportType: 'sales' | 'stock' | 'fiados' | 'general';
+  reportType: 'sales' | 'stock' | 'fiados' | 'general' | 'customer_collection';
   reportData: any;
 }
 
@@ -14,16 +14,16 @@ export interface MobileEmailOptions {
  * Serviço inteligente de email que funciona em todas as plataformas
  */
 export class MobileEmailService {
-  
+
   /**
    * Envia email usando a melhor abordagem para cada plataforma
    */
   static async sendEmail(options: MobileEmailOptions): Promise<{ success: boolean; message: string }> {
     const { to, subject, reportType, reportData } = options;
-    
+
     console.log('📧 MobileEmailService.sendEmail iniciado');
     console.log('📊 Opções:', { to, subject, reportType, platform: Capacitor.getPlatform() });
-    
+
     try {
       if (Capacitor.isNativePlatform()) {
         console.log('📱 Usando método nativo (mobile)');
@@ -36,7 +36,7 @@ export class MobileEmailService {
       }
     } catch (error) {
       console.error('❌ Erro geral ao enviar email:', error);
-      
+
       // FALLBACK FINAL: Copiar para clipboard
       console.log('📋 Usando fallback: copiar para clipboard');
       return await this.copyToClipboard(options);
@@ -48,11 +48,11 @@ export class MobileEmailService {
    */
   private static async sendViaNativeApp(options: MobileEmailOptions): Promise<{ success: boolean; message: string }> {
     const { to, subject, reportData } = options;
-    
+
     try {
       // Gerar conteúdo do email em texto
       const emailBody = this.generateTextReport(options.reportType, reportData);
-      
+
       // Tentar usar Share API para abrir app de email
       const shareData = {
         title: subject,
@@ -61,7 +61,7 @@ export class MobileEmailService {
       };
 
       await Share.share(shareData);
-      
+
       // Mostrar toast de sucesso
       if (Capacitor.isNativePlatform()) {
         await Toast.show({
@@ -70,15 +70,15 @@ export class MobileEmailService {
           position: 'bottom'
         });
       }
-      
+
       return {
         success: true,
         message: 'App de email aberto com sucesso!'
       };
-      
+
     } catch (error) {
       console.error('Erro no app nativo:', error);
-      
+
       // Fallback: Tentar mailto
       return await this.sendViaMailto(options);
     }
@@ -90,13 +90,13 @@ export class MobileEmailService {
   private static async sendViaWeb(options: MobileEmailOptions): Promise<{ success: boolean; message: string }> {
     try {
       console.log('🌐 Enviando via web usando mailto...');
-      
+
       // Usar mailto diretamente (mais confiável)
       return await this.sendViaMailto(options);
-      
+
     } catch (error) {
       console.error('Erro no envio web:', error);
-      
+
       // Fallback: copiar para clipboard
       return await this.copyToClipboard(options);
     }
@@ -107,25 +107,25 @@ export class MobileEmailService {
    */
   private static async sendViaMailto(options: MobileEmailOptions): Promise<{ success: boolean; message: string }> {
     const { to, subject, reportType, reportData } = options;
-    
+
     try {
       console.log('📧 Abrindo cliente de email via mailto...');
-      
+
       const emailBody = this.generateTextReport(reportType, reportData);
-      
+
       // Limitar o tamanho do corpo do email (alguns clientes têm limite)
       const maxBodyLength = 2000;
-      const truncatedBody = emailBody.length > maxBodyLength 
+      const truncatedBody = emailBody.length > maxBodyLength
         ? emailBody.substring(0, maxBodyLength) + '\n\n... (relatório truncado devido ao tamanho)'
         : emailBody;
-      
+
       const encodedBody = encodeURIComponent(truncatedBody);
       const encodedSubject = encodeURIComponent(subject);
-      
+
       const mailtoUrl = `mailto:${to}?subject=${encodedSubject}&body=${encodedBody}`;
-      
+
       console.log('📧 URL mailto gerada:', mailtoUrl.substring(0, 100) + '...');
-      
+
       // Tentar abrir o cliente de email
       const link = document.createElement('a');
       link.href = mailtoUrl;
@@ -133,20 +133,20 @@ export class MobileEmailService {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+
       // Alternativa: usar window.open
       // window.open(mailtoUrl, '_blank');
-      
+
       console.log('✅ Cliente de email aberto com sucesso!');
-      
+
       return {
         success: true,
         message: 'Cliente de email aberto! Complete o envio manualmente.'
       };
-      
+
     } catch (error) {
       console.error('❌ Erro no mailto:', error);
-      
+
       // Se mailto falhar, copiar para clipboard
       return await this.copyToClipboard(options);
     }
@@ -157,10 +157,10 @@ export class MobileEmailService {
    */
   private static async copyToClipboard(options: MobileEmailOptions): Promise<{ success: boolean; message: string }> {
     const { to, subject, reportType, reportData } = options;
-    
+
     try {
       const emailContent = `Para: ${to}\nAssunto: ${subject}\n\n${this.generateTextReport(reportType, reportData)}`;
-      
+
       if (navigator.clipboard) {
         await navigator.clipboard.writeText(emailContent);
       } else {
@@ -172,7 +172,7 @@ export class MobileEmailService {
         document.execCommand('copy');
         document.body.removeChild(textArea);
       }
-      
+
       if (Capacitor.isNativePlatform()) {
         await Toast.show({
           text: 'Relatório copiado! Cole no seu app de email.',
@@ -180,12 +180,12 @@ export class MobileEmailService {
           position: 'bottom'
         });
       }
-      
+
       return {
         success: true,
         message: 'Relatório copiado para área de transferência!'
       };
-      
+
     } catch (error) {
       console.error('Erro ao copiar:', error);
       return {
@@ -198,24 +198,24 @@ export class MobileEmailService {
   /**
    * Gera relatório em formato texto
    */
-  private static generateTextReport(reportType: string, data: any): string {
+  public static generateTextReport(reportType: string, data: any): string {
     const date = new Date().toLocaleDateString('pt-BR');
-    
+
     switch (reportType) {
       case 'sales':
         let salesReport = `📊 RELATÓRIO DE VENDAS\nData: ${date}\n${'='.repeat(40)}\n\n`;
-        
+
         if (data.totalSalesToday !== undefined) {
           salesReport += `📅 VENDAS DE HOJE\n`;
           salesReport += `Vendas: ${data.salesCountToday || 0}\n`;
           salesReport += `Faturamento: R$ ${(data.totalSalesToday || 0).toFixed(2)}\n\n`;
         }
-        
+
         salesReport += `📊 TOTAIS GERAIS\n`;
         salesReport += `Total: R$ ${(data.totalSales || 0).toFixed(2)}\n`;
         salesReport += `Quantidade: ${data.salesCount || 0}\n`;
         salesReport += `Ticket Médio: R$ ${(data.averageTicket || 0).toFixed(2)}\n\n`;
-        
+
         if (data.sales && data.sales.length > 0) {
           salesReport += `ÚLTIMAS VENDAS\n${'-'.repeat(30)}\n`;
           data.sales.slice(0, 10).forEach((sale: any, index: number) => {
@@ -224,7 +224,7 @@ export class MobileEmailService {
             salesReport += `   R$ ${(sale.total || 0).toFixed(2)}\n\n`;
           });
         }
-        
+
         salesReport += `\n📱 Caderninho Digital\nRelatório gerado automaticamente`;
         return salesReport;
 
@@ -232,7 +232,7 @@ export class MobileEmailService {
         let stockReport = `📦 RELATÓRIO DE ESTOQUE\nData: ${date}\n${'='.repeat(40)}\n\n`;
         stockReport += `Total de Produtos: ${data.totalProducts || 0}\n`;
         stockReport += `Produtos em Baixa: ${data.lowStockCount || 0}\n\n`;
-        
+
         if (data.lowStockProducts && data.lowStockProducts.length > 0) {
           stockReport += `⚠️ PRODUTOS EM BAIXA\n${'-'.repeat(30)}\n`;
           data.lowStockProducts.forEach((product: any, index: number) => {
@@ -242,7 +242,7 @@ export class MobileEmailService {
         } else {
           stockReport += `✅ Todos os produtos com estoque adequado!\n\n`;
         }
-        
+
         stockReport += `\n📱 Caderninho Digital\nRelatório gerado automaticamente`;
         return stockReport;
 
@@ -250,7 +250,7 @@ export class MobileEmailService {
         let fiadosReport = `💳 RELATÓRIO DE FIADOS\nData: ${date}\n${'='.repeat(40)}\n\n`;
         fiadosReport += `Total a Receber: R$ ${(data.totalPending || 0).toFixed(2)}\n`;
         fiadosReport += `Fiados Vencidos: ${data.overdueCount || 0}\n\n`;
-        
+
         if (data.pendingFiados && data.pendingFiados.length > 0) {
           fiadosReport += `📋 FIADOS PENDENTES\n${'-'.repeat(30)}\n`;
           data.pendingFiados.forEach((fiado: any, index: number) => {
@@ -261,9 +261,20 @@ export class MobileEmailService {
         } else {
           fiadosReport += `✅ Nenhum fiado pendente!\n\n`;
         }
-        
+
         fiadosReport += `\n📱 Caderninho Digital\nRelatório gerado automaticamente`;
         return fiadosReport;
+
+      case 'customer_collection':
+        let collectionReport = `🔔 LEMBRETE DE PAGAMENTO\nData: ${date}\n${'='.repeat(40)}\n\n`;
+        collectionReport += `Olá ${data.clientName},\n\n`;
+        collectionReport += `Estamos enviando este lembrete sobre uma pendência em aberto.\n\n`;
+        collectionReport += `Valor Pendente: R$ ${(data.amount || 0).toFixed(2)}\n\n`;
+        collectionReport += `Detalhes da Compra:\nData: ${data.saleDate ? new Date(data.saleDate).toLocaleDateString('pt-BR') : 'N/A'}\n`;
+        if (data.items) collectionReport += `Itens: ${data.items}\n`;
+        collectionReport += `\nCaso já tenha pago, desconsidere.\n`;
+        collectionReport += `\n📱 Caderninho Digital`;
+        return collectionReport;
 
       default:
         return `📄 RELATÓRIO\nData: ${date}\n\n${JSON.stringify(data, null, 2)}\n\n📱 Caderninho Digital`;

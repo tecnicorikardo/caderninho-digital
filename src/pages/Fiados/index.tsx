@@ -5,6 +5,8 @@ import { SubscriptionGuard } from '../../components/SubscriptionGuard';
 import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import toast from 'react-hot-toast';
+import { clientService } from '../../services/clientService';
+import EmailReportModal from '../../components/EmailReportModal';
 
 interface Sale {
   id: string;
@@ -41,6 +43,8 @@ export function Fiados() {
   const [paymentAmount, setPaymentAmount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<'dinheiro' | 'pix'>('dinheiro');
   const [paymentNotes, setPaymentNotes] = useState('');
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailData, setEmailData] = useState<any>(null);
 
   useEffect(() => {
     loadFiadoSales();
@@ -106,6 +110,36 @@ export function Fiados() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleEmailCollection = async (sale: Sale) => {
+    let clientEmail = '';
+    
+    // Tentar buscar email do cliente se tiver ID
+    if (sale.clientId) {
+      try {
+        const client = await clientService.getClientById(sale.clientId);
+        if (client && client.email) {
+          clientEmail = client.email;
+        }
+      } catch (error) {
+        console.error('Erro ao buscar email do cliente:', error);
+      }
+    }
+
+    setEmailData({
+      reportType: 'customer_collection',
+      to: clientEmail,
+      subject: `Lembrete de Pagamento - ${user?.displayName || 'Caderninho Digital'}`,
+      reportData: {
+        storeName: user?.displayName || 'Caderninho Digital', 
+        clientName: sale.clientName,
+        amount: sale.remainingAmount,
+        saleDate: sale.createdAt,
+        items: sale.products?.map(p => `${p.quantity}x ${p.name}`).join(', ') || 'Venda Fiado'
+      }
+    });
+    setShowEmailModal(true);
   };
 
   const handleAddPayment = (sale: Sale) => {
@@ -285,6 +319,21 @@ export function Fiados() {
 
   return (
     <SubscriptionGuard feature="o módulo de fiados">
+      <style>
+        {`
+          @media (max-width: 600px) {
+            .fiado-buttons {
+              flex-direction: column;
+              width: 100%;
+            }
+            .fiado-buttons button {
+              width: 100% !important;
+              min-width: auto !important;
+              margin-bottom: 0.25rem;
+            }
+          }
+        `}
+      </style>
       <div style={{ 
         minHeight: '100vh',
       background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
@@ -676,7 +725,7 @@ export function Fiados() {
                       </div>
                     </div>
                     
-                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <div className="fiado-buttons" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                       <button
                         onClick={() => handleAddPayment(sale)}
                         className="payment-button"
@@ -711,6 +760,30 @@ export function Fiados() {
                         }}
                       >
                         📤 Compartilhar
+                      </button>
+                      <button
+                        onClick={() => handleEmailCollection(sale)}
+                        style={{
+                          padding: '0.75rem 1rem',
+                          backgroundColor: '#2b6cb0',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          fontWeight: '500',
+                          fontSize: '0.9rem',
+                          transition: 'all 0.3s ease',
+                          flex: '1',
+                          minWidth: '150px'
+                        }}
+                        onMouseOver={(e) => {
+                          e.currentTarget.style.backgroundColor = '#2c5282';
+                        }}
+                        onMouseOut={(e) => {
+                          e.currentTarget.style.backgroundColor = '#2b6cb0';
+                        }}
+                      >
+                        📧 Cobrar
                       </button>
                     </div>
                   </div>
@@ -867,6 +940,18 @@ export function Fiados() {
             </form>
           </div>
         </div>
+      )}
+      
+      {/* Modal de Email */}
+      {showEmailModal && emailData && (
+        <EmailReportModal
+          isOpen={showEmailModal}
+          onClose={() => setShowEmailModal(false)}
+          defaultTo={emailData.to}
+          defaultSubject={emailData.subject}
+          reportType={emailData.reportType}
+          reportData={emailData.reportData}
+        />
       )}
       </div>
     </SubscriptionGuard>

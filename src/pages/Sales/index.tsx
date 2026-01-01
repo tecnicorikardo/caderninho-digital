@@ -8,6 +8,7 @@ import { useWindowSize } from '../../hooks/useWindowSize';
 import { MobileButton } from '../../components/MobileButton';
 import { PageHeader } from '../../components/PageHeader';
 import EmailReportModal from '../../components/EmailReportModal';
+import { ReceiptModal } from '../../components/ReceiptModal';
 
 import { collection, addDoc, getDocs, query, where, Timestamp } from 'firebase/firestore';
 import { db } from '../../config/firebase';
@@ -28,6 +29,7 @@ interface Sale {
   createdAt: Date;
   userId: string;
   isCustomSale?: boolean; // Para vendas só com valor
+  dueDate?: Timestamp; // Data de vencimento para fiado
 }
 
 interface Client {
@@ -60,6 +62,8 @@ export function Sales() {
   const [saleType, setSaleType] = useState<'custom' | 'with-product'>('custom');
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [receiptHtml, setReceiptHtml] = useState('');
   const [lastSale, setLastSale] = useState<Sale | null>(null);
   
   const [formData, setFormData] = useState({
@@ -69,7 +73,8 @@ export function Sales() {
     productName: '',
     price: 0,
     quantity: 1,
-    paymentMethod: 'dinheiro'
+    paymentMethod: 'dinheiro',
+    dueDate: ''
   });
 
   useEffect(() => {
@@ -220,7 +225,10 @@ export function Sales() {
         remainingAmount,
         userId: user.uid,
         isCustomSale: saleType === 'custom',
-        createdAt: Timestamp.now()
+        createdAt: Timestamp.now(),
+        ...(formData.paymentMethod === 'fiado' && formData.dueDate ? { 
+          dueDate: Timestamp.fromDate(new Date(formData.dueDate + 'T12:00:00')) 
+        } : {})
       };
 
       // Adicionar campos opcionais apenas se tiverem valor válido
@@ -365,7 +373,8 @@ export function Sales() {
       productName: '',
       price: 0,
       quantity: 1,
-      paymentMethod: 'dinheiro'
+      paymentMethod: 'dinheiro',
+      dueDate: ''
     });
     setSaleType('custom');
     setShowForm(false);
@@ -423,8 +432,12 @@ export function Sales() {
           }
           @media print {
             body { margin: 0; padding: 10px; }
+            /* Esconder elementos de navegação se houver */
+            #root, .modal-content { display: none; }
           }
         </style>
+        <!-- Importar CSS global se necessário para reset -->
+      </head>
       </head>
       <body>
         <div class="header">
@@ -476,19 +489,12 @@ export function Sales() {
       </html>
     `;
 
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(receiptContent);
-      printWindow.document.close();
-      printWindow.focus();
-      setTimeout(() => {
-        printWindow.print();
-        printWindow.close();
-      }, 250);
-    }
+    // Abrir modal em vez de window.open
+    setReceiptHtml(receiptContent);
+    setShowReceiptModal(true);
+    handleFinalizeSale(); // Limpa estado da venda e fecha modal de sucesso
     
-    toast.success('Recibo enviado para impressão!');
-    handleFinalizeSale();
+    toast.success('Recibo gerado com sucesso!');
   };
 
   const handleShareWhatsApp = () => {
@@ -1240,6 +1246,31 @@ export function Sales() {
                 </select>
               </div>
 
+              {formData.paymentMethod === 'fiado' && (
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', color: '#d97706' }}>
+                    📅 Data para Pagamento (Opcional)
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.dueDate}
+                    min={new Date().toISOString().split('T')[0]}
+                    onChange={(e) => setFormData(prev => ({ ...prev, dueDate: e.target.value }))}
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem',
+                      border: '2px solid #fcd34d',
+                      borderRadius: '8px',
+                      fontSize: '1rem',
+                      backgroundColor: '#fffbeb'
+                    }}
+                  />
+                  <div style={{ fontSize: '0.8rem', color: '#b45309', marginTop: '0.25rem' }}>
+                    A IA irá te avisar no dia deste vencimento.
+                  </div>
+                </div>
+              )}
+
               <div style={{
                 padding: '1rem',
                 backgroundColor: '#f8f9fa',
@@ -1290,7 +1321,14 @@ export function Sales() {
         onClose={() => setShowEmailModal(false)}
         reportType="sales"
         reportData={prepareEmailReport()}
-        defaultSubject={`Relatório de Vendas - ${new Date().toLocaleDateString('pt-BR')}`}
+        defaultSubject="Relatório de Vendas"
+      />
+
+      {/* Modal de Recibo */}
+      <ReceiptModal 
+        isOpen={showReceiptModal}
+        onClose={() => setShowReceiptModal(false)}
+        htmlContent={receiptHtml}
       />
 
       {/* Modal de Sucesso da Venda */}

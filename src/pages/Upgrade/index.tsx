@@ -9,7 +9,7 @@ export function Upgrade() {
   const navigate = useNavigate();
   const { subscription, plans } = useSubscription();
   const { loading: paymentLoading } = usePayment();
-  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('monthly');
+  const [months, setMonths] = useState(1); // Default 1 mês
   const [showPremiumForm, setShowPremiumForm] = useState(false);
 
   const [showPayment, setShowPayment] = useState(false);
@@ -29,6 +29,8 @@ export function Upgrade() {
     toast.success('🎉 Pagamento aprovado! Bem-vindo ao Premium!');
     navigate('/');
   };
+
+  const totalAmount = months * 20.00;
 
   return (
     <div style={{ 
@@ -135,7 +137,7 @@ export function Upgrade() {
                 R$ 20<span style={{ fontSize: '1rem', fontWeight: 'normal' }}>/mês</span>
               </div>
               <div style={{ fontSize: '0.9rem', color: '#666' }}>
-                ou R$ 200/ano (2 meses grátis)
+                Assine quantos meses quiser!
               </div>
             </div>
 
@@ -223,79 +225,78 @@ export function Upgrade() {
               </div>
             </div>
 
-            {/* Seleção de Plano */}
+            {/* Seleção de Meses */}
             <div style={{ marginBottom: '2rem' }}>
               <label style={{ display: 'block', marginBottom: '1rem', fontWeight: '500' }}>
-                Período de Cobrança
+                Quantos meses deseja assinar?
               </label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between',
+                backgroundColor: 'white',
+                border: '2px solid #e1e5e9',
+                borderRadius: '12px',
+                padding: '1rem'
+              }}>
                 <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setSelectedPlan('monthly');
-                  }}
+                  onClick={() => setMonths(prev => Math.max(1, prev - 1))}
                   style={{
-                    padding: '1rem',
-                    border: `2px solid ${selectedPlan === 'monthly' ? '#007bff' : '#e1e5e9'}`,
-                    borderRadius: '8px',
-                    backgroundColor: selectedPlan === 'monthly' ? '#f0f8ff' : 'white',
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '50%',
+                    border: 'none',
+                    backgroundColor: '#f0f0f0',
+                    fontSize: '1.5rem',
                     cursor: 'pointer',
-                    textAlign: 'center'
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#333'
                   }}
                 >
-                  <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>
-                    💳 Mensal
-                  </div>
-                  <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#007bff' }}>
-                    R$ 20,00
-                  </div>
-                  <div style={{ fontSize: '0.8rem', color: '#666' }}>
-                    por mês
-                  </div>
+                  -
                 </button>
-                
+
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#333' }}>
+                    {months} {months === 1 ? 'mês' : 'meses'}
+                  </div>
+                  <div style={{ fontSize: '0.9rem', color: '#666' }}>
+                    R$ 20,00 / mês
+                  </div>
+                </div>
+
                 <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setSelectedPlan('yearly');
-                  }}
+                  onClick={() => setMonths(prev => Math.min(12, prev + 1))}
                   style={{
-                    padding: '1rem',
-                    border: `2px solid ${selectedPlan === 'yearly' ? '#28a745' : '#e1e5e9'}`,
-                    borderRadius: '8px',
-                    backgroundColor: selectedPlan === 'yearly' ? '#f0fff0' : 'white',
-                    cursor: 'pointer',
-                    textAlign: 'center',
-                    position: 'relative'
-                  }}
-                >
-                  <div style={{
-                    position: 'absolute',
-                    top: '-8px',
-                    right: '-8px',
-                    backgroundColor: '#28a745',
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '50%',
+                    border: 'none',
+                    backgroundColor: '#32BCAD',
                     color: 'white',
-                    padding: '0.2rem 0.5rem',
-                    borderRadius: '12px',
-                    fontSize: '0.7rem',
-                    fontWeight: 'bold'
-                  }}>
-                    2 MESES GRÁTIS
-                  </div>
-                  <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>
-                    💎 Anual
-                  </div>
-                  <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#28a745' }}>
-                    R$ 200,00
-                  </div>
-                  <div style={{ fontSize: '0.8rem', color: '#666' }}>
-                    R$ 16,67/mês
-                  </div>
+                    fontSize: '1.5rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  +
                 </button>
+              </div>
+
+              {/* Distaque de valor total */}
+              <div style={{ 
+                marginTop: '1rem', 
+                textAlign: 'right',
+                fontWeight: 'bold',
+                fontSize: '1.1rem',
+                color: '#32BCAD'
+              }}>
+                Total a pagar: R$ {(months * 20).toFixed(2).replace('.', ',')}
               </div>
             </div>
 
@@ -308,21 +309,15 @@ export function Upgrade() {
             }}>
               <h4 style={{ margin: '0 0 1rem 0' }}>Resumo do Pedido</h4>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                <span>Plano Premium ({selectedPlan === 'monthly' ? 'mensal' : 'anual'})</span>
-                <span>R$ {selectedPlan === 'monthly' ? '20,00' : '200,00'}</span>
+                <span>Plano Premium ({months} {months === 1 ? 'mês' : 'meses'})</span>
+                <span>R$ {totalAmount.toFixed(2).replace('.', ',')}</span>
               </div>
-              {selectedPlan === 'yearly' && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', color: '#28a745' }}>
-                  <span>Desconto anual</span>
-                  <span>-R$ 40,00</span>
-                </div>
-              )}
 
               <hr style={{ margin: '1rem 0' }} />
               <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '1.2rem' }}>
                 <span>Total</span>
                 <span style={{ color: '#32BCAD' }}>
-                  R$ {selectedPlan === 'monthly' ? '20,00' : '200,00'}
+                  R$ {totalAmount.toFixed(2).replace('.', ',')}
                 </span>
               </div>
             </div>
@@ -330,8 +325,9 @@ export function Upgrade() {
             {/* Interface de Pagamento PIX */}
             {showPayment ? (
               <PixPayment
-                amount={selectedPlan === 'monthly' ? 20.00 : 200.00}
-                description={`Plano Premium ${selectedPlan === 'monthly' ? 'Mensal' : 'Anual'}`}
+                amount={totalAmount}
+                description={`Plano Premium (${months} ${months === 1 ? 'mês' : 'meses'})`}
+                interval="month" // Mesmo sendo N meses, tecnicamente é um ciclo mensal pré-pago
                 onSuccess={handlePaymentSuccess}
                 onCancel={() => setShowPayment(false)}
               />
@@ -367,7 +363,7 @@ export function Upgrade() {
                   }}
                 >
                   {paymentLoading ? 'Processando...' : 
-                   `📱 Pagar R$ ${selectedPlan === 'monthly' ? '20,00' : '200,00'} via PIX`}
+                   `📱 Pagar R$ ${totalAmount.toFixed(2).replace('.', ',')} via PIX`}
                 </button>
               </div>
             )}

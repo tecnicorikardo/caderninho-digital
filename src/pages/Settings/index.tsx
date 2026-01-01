@@ -6,12 +6,66 @@ import { collection, query, where, getDocs, deleteDoc, doc, addDoc, Timestamp } 
 import { db } from '../../config/firebase';
 import toast from 'react-hot-toast';
 import { SubscriptionStatus } from '../../components/SubscriptionStatus';
+import { AsaasIntegration } from '../../components/AsaasIntegration';
 
 export function Settings() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  
+  // Estado do Perfil
+  const [loadingProfile, setLoadingProfile] = useState(false);
+  const [profileData, setProfileData] = useState({
+    name: '',
+    cpf: '', // O usuário forneceu 10579769704, podemos preencher se vazio depois
+    phone: '' // O usuário forneceu 21970902074
+  });
+
+  // Carregar dados user assim que abrir
+  useState(() => {
+    const loadProfile = async () => {
+      if (!user) return;
+      try {
+        const userDocRef = doc(db, 'users', user.uid);
+        const userSnap = await getDocs(query(collection(db, 'users'), where('email', '==', user.email)));
+        
+        // Correção: getDocs retorna querySnapshot, vamos tentar pegar direto pelo ID se possível ou da query
+        // A melhor forma é usar getDoc(doc(db, 'users', user.uid)) que já importamos
+        const docSnap = await import('firebase/firestore').then(mod => mod.getDoc(userDocRef));
+        
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setProfileData({
+            name: data.name || user.displayName || '',
+            cpf: data.cpf || '',
+            phone: data.phone || ''
+          });
+        }
+      } catch (error) {
+        console.error('Erro ao carregar perfil:', error);
+      }
+    };
+    loadProfile();
+  });
+
+  const handleSaveProfile = async () => {
+    if (!user) return;
+    setLoadingProfile(true);
+    try {
+      const { setDoc, doc } = await import('firebase/firestore');
+      await setDoc(doc(db, 'users', user.uid), {
+        ...profileData,
+        updatedAt: new Date()
+      }, { merge: true });
+      toast.success('Perfil atualizado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao salvar perfil:', error);
+      toast.error('Erro ao salvar perfil.');
+    } finally {
+      setLoadingProfile(false);
+    }
+  };
 
   const clearAllData = async () => {
     if (!user) {
@@ -601,6 +655,91 @@ export function Settings() {
       {/* Status da Assinatura */}
       <SubscriptionStatus />
 
+      <div style={{
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        backdropFilter: 'blur(20px)',
+        borderRadius: '20px',
+        padding: '2rem',
+        marginBottom: '2rem',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+        border: '1px solid rgba(255, 255, 255, 0.2)'
+      }}>
+        <h3 style={{ margin: '0 0 1.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          👤 Meu Perfil
+        </h3>
+        
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+          <div>
+            <label style={{ display: 'block', fontSize: '0.9rem', color: '#666', marginBottom: '0.5rem' }}>Nome Completo</label>
+            <input
+              type="text"
+              value={profileData.name}
+              onChange={(e) => setProfileData({...profileData, name: e.target.value})}
+              placeholder="Seu nome"
+              style={{
+                width: '100%',
+                padding: '0.8rem',
+                borderRadius: '8px',
+                border: '1px solid #ddd',
+                fontSize: '1rem'
+              }}
+            />
+          </div>
+          
+          <div>
+            <label style={{ display: 'block', fontSize: '0.9rem', color: '#666', marginBottom: '0.5rem' }}>CPF (Somente números)</label>
+            <input
+              type="text"
+              value={profileData.cpf}
+              onChange={(e) => setProfileData({...profileData, cpf: e.target.value.replace(/\D/g, '')})}
+              placeholder="000.000.000-00"
+              maxLength={11}
+              style={{
+                width: '100%',
+                padding: '0.8rem',
+                borderRadius: '8px',
+                border: '1px solid #ddd',
+                fontSize: '1rem'
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.9rem', color: '#666', marginBottom: '0.5rem' }}>Telefone / WhatsApp</label>
+            <input
+              type="text"
+              value={profileData.phone}
+              onChange={(e) => setProfileData({...profileData, phone: e.target.value})}
+              placeholder="(00) 00000-0000"
+              style={{
+                width: '100%',
+                padding: '0.8rem',
+                borderRadius: '8px',
+                border: '1px solid #ddd',
+                fontSize: '1rem'
+              }}
+            />
+          </div>
+        </div>
+
+        <button
+          onClick={handleSaveProfile}
+          disabled={loadingProfile}
+          style={{
+            padding: '0.8rem 2rem',
+            backgroundColor: '#32BCAD',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            cursor: loadingProfile ? 'not-allowed' : 'pointer',
+            fontWeight: 'bold',
+            opacity: loadingProfile ? 0.7 : 1
+          }}
+        >
+          {loadingProfile ? 'Salvando...' : '💾 Salvar Perfil'}
+        </button>
+      </div>
+
       {/* Seção Dados */}
       <div style={{
         backgroundColor: 'rgba(255, 255, 255, 0.95)',
@@ -902,6 +1041,19 @@ export function Settings() {
             🚪 Sair
           </button>
         </div>
+      </div>
+
+      {/* Integração Asaas */}
+      <div style={{
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        backdropFilter: 'blur(20px)',
+        borderRadius: '20px',
+        padding: '2rem',
+        marginBottom: '2rem',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+        border: '1px solid rgba(255, 255, 255, 0.2)'
+      }}>
+        <AsaasIntegration />
       </div>
 
       {/* Seção Sobre */}

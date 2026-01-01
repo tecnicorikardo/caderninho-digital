@@ -1,0 +1,80 @@
+# 📧 Configurações do EmailJS - EXEMPLO
+
+## Após criar sua conta no EmailJS, substitua estas configurações:
+
+### No arquivo: src/services/emailjsService.ts
+
+Linha 4-8, substitua:
+
+```typescript
+const EMAILJS_CONFIG = {
+  serviceId: 'service_caderninho',    // ← Substitua pelo seu Service ID
+  templateId: 'template_relatorio',   // ← Substitua pelo seu Template ID  
+  publicKey: 'YOUR_PUBLIC_KEY',       // ← Substitua pela sua Public Key
+};
+```
+
+### Exemplo de configuração real:
+```typescript
+const EMAILJS_CONFIG = {
+  serviceId: 'service_abc123',        // Service ID do Gmail
+  templateId: 'template_xyz789',      // Template ID criado
+  publicKey: 'user_def456ghi',        // Public Key da conta
+};
+```
+
+## 🔍 Onde encontrar cada informação:
+
+### Service ID:
+1. EmailJS Dashboard → Email Services
+2. Clique no serviço Gmail criado
+3. Copie o "Service ID"
+
+### Template ID:
+1. EmailJS Dashboard → Email Templates  
+2. Clique no template criado
+3. Copie o "Template ID"
+
+### Public Key:
+1. EmailJS Dashboard → Account → General
+2. Copie a "Public Key"
+
+## 📝 Template sugerido para EmailJS:
+
+### Assunto:
+```
+{{subject}}
+```
+
+### Conteúdo:
+```html
+<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+  <div style="background: #2d3748; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+    <h1>📊 Relatório - Caderninho Digital</h1>
+    <p>Para: {{to_email}}</p>
+  </div>
+  
+  <div style="background: white; padding: 20px; border: 1px solid #e2e8f0;">
+    <div style="white-space: pre-line; font-family: monospace;">{{report_content}}</div>
+  </div>
+  
+  <div style="background: #f7fafc; padding: 15px; text-align: center; font-size: 12px; color: #718096; border-radius: 0 0 8px 8px;">
+    <p>📱 Caderninho Digital - Sistema de Gestão</p>
+    <p>Este é um email automático, não responda.</p>
+  </div>
+</div>
+```
+
+## ⚡ Após configurar:
+
+1. Salve o arquivo emailjsService.ts
+2. Execute: npm run build
+3. Execute: firebase deploy --only hosting
+4. Teste no site: https://bloquinhodigital.web.app
+
+## 🎯 Resultado esperado:
+
+✅ Emails enviados automaticamente
+✅ HTML formatado profissionalmente  
+✅ Sem dependência de Firebase Functions
+✅ 200 emails gratuitos por mês

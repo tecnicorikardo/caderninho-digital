@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { sendReportByEmail, isValidEmail } from '../services/emailService';
+import { sendReportViaEmailJS } from '../services/emailjsService';
 import { MobileEmailService } from '../services/mobileEmailService';
 import { Capacitor } from '@capacitor/core';
 import colors from '../styles/colors';
@@ -7,9 +8,10 @@ import colors from '../styles/colors';
 interface EmailReportModalProps {
   isOpen: boolean;
   onClose: () => void;
-  reportType: 'sales' | 'stock' | 'fiados' | 'general';
+  reportType: 'sales' | 'stock' | 'fiados' | 'general' | 'customer_collection';
   reportData: any;
   defaultSubject?: string;
+  defaultTo?: string;
 }
 
 const EmailReportModal: React.FC<EmailReportModalProps> = ({
@@ -50,15 +52,16 @@ const EmailReportModal: React.FC<EmailReportModalProps> = ({
     setError('');
 
     try {
-      // Usar serviço inteligente que funciona em todas as plataformas
-      const result = await MobileEmailService.sendEmail({
+      // 1. Tentar envio direto via EmailJS
+      console.log('1️⃣ Tentando envio via EmailJS...');
+      await sendReportViaEmailJS({
         to: email,
         subject: subject || `Relatório ${reportType} - Caderninho Digital`,
         reportType,
         reportData,
       });
       
-      console.log('✅ Email processado:', result);
+      console.log('✅ Email enviado com sucesso via EmailJS!');
 
       // Salvar email se o usuário quiser
       if (saveEmail) {
@@ -72,10 +75,37 @@ const EmailReportModal: React.FC<EmailReportModalProps> = ({
         onClose();
         setSuccess(false);
         setSubject('');
-      }, 3000); // Mais tempo para ler a mensagem
-    } catch (err: any) {
-      console.error('❌ Erro ao processar email:', err);
-      setError(err.message || 'Erro ao processar email');
+      }, 3000); 
+
+    } catch (emailjsError) {
+      console.warn('⚠️ Falha no envio via EmailJS. Tentando fallback local...', emailjsError);
+      
+      try {
+        // 2. Fallback: Usar serviço inteligente (Mailto/Share)
+        const result = await MobileEmailService.sendEmail({
+          to: email,
+          subject: subject || `Relatório ${reportType} - Caderninho Digital`,
+          reportType,
+          reportData,
+        });
+        
+        console.log('✅ Email processado (fallback):', result);
+
+        // Salvar email se o usuário quiser
+        if (saveEmail) {
+          localStorage.setItem('userReportEmail', email);
+        }
+
+        setSuccess(true);
+        setTimeout(() => {
+          onClose();
+          setSuccess(false);
+          setSubject('');
+        }, 3000);
+      } catch (fallbackError: any) {
+         console.error('❌ Erro total ao enviar email:', fallbackError);
+         setError(fallbackError.message || 'Erro ao processar email');
+      }
     } finally {
       setLoading(false);
     }
@@ -237,6 +267,50 @@ const EmailReportModal: React.FC<EmailReportModalProps> = ({
               >
                 Cancelar
               </button>
+              
+              <button
+                onClick={async () => {
+                  try {
+                    const reportContent = MobileEmailService.generateTextReport(reportType, reportData);
+                    const fullContent = `Para: ${email}\nAssunto: ${subject || `Relatório ${reportType} - Caderninho Digital`}\n\n${reportContent}`;
+                    
+                    if (navigator.clipboard) {
+                      await navigator.clipboard.writeText(fullContent);
+                    } else {
+                      // Fallback para navegadores antigos
+                      const textArea = document.createElement('textarea');
+                      textArea.value = fullContent;
+                      document.body.appendChild(textArea);
+                      textArea.select();
+                      document.execCommand('copy');
+                      document.body.removeChild(textArea);
+                    }
+                    
+                    setSuccess(true);
+                    setTimeout(() => {
+                      onClose();
+                      setSuccess(false);
+                    }, 2000);
+                  } catch (err) {
+                    setError('Erro ao copiar relatório');
+                  }
+                }}
+                disabled={loading || !email.trim()}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  border: 'none',
+                  borderRadius: '6px',
+                  backgroundColor: loading || !email.trim()
+                    ? colors.text.disabled
+                    : '#28a745',
+                  color: 'white',
+                  cursor: loading || !email.trim() ? 'not-allowed' : 'pointer',
+                  fontWeight: 600,
+                }}
+              >
+                📋 Copiar Relatório
+              </button>
+              
               <button
                 onClick={handleSendEmail}
                 disabled={loading}
@@ -252,7 +326,7 @@ const EmailReportModal: React.FC<EmailReportModalProps> = ({
                   fontWeight: 600,
                 }}
               >
-                {loading ? 'Enviando...' : 'Enviar Email'}
+                {loading ? 'Enviando...' : '📧 Enviar Email'}
               </button>
             </div>
           </>

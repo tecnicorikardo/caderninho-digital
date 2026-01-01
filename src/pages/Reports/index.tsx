@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useWindowSize } from '../../hooks/useWindowSize';
 import { useAuth } from '../../contexts/AuthContext';
 import { SubscriptionGuard } from '../../components/SubscriptionGuard';
 import EmailReportModal from '../../components/EmailReportModal';
@@ -208,6 +209,7 @@ function SimpleAI({ rawData }: { rawData: any }) {
 
 export function Reports() {
   const navigate = useNavigate();
+  const { isMobile } = useWindowSize();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [reportData, setReportData] = useState<ReportData | null>(null);
@@ -803,7 +805,12 @@ Produtos em Falta: ${reportData.outOfStockProducts}
         marginBottom: '2rem'
       }}>
         <h3 style={{ margin: '0 0 1rem 0' }}>Filtros</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto auto', gap: '1rem', alignItems: 'end' }}>
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr auto auto', 
+          gap: '1rem', 
+          alignItems: isMobile ? 'stretch' : 'end' 
+        }}>
           <div>
             <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
               Data Inicial

@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Email - Plano Blaze</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-weight: 500;
+        }
+        .success { background: #d4edda; color: #155724; border-left: 4px solid #28a745; }
+        .warning { background: #fff3cd; color: #856404; border-left: 4px solid #ffc107; }
+        .info { background: #d1ecf1; color: #0c5460; border-left: 4px solid #17a2b8; }
+        .error { background: #f8d7da; color: #721c24; border-left: 4px solid #dc3545; }
+        
+        .step {
+            background: #f8f9fa;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+        }
+        .step h4 {
+            margin: 0 0 10px 0;
+            color: #007bff;
+        }
+        
+        code {
+            background: #f1f3f4;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .command {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            margin: 5px;
+            font-weight: 500;
+        }
+        .btn:hover { background: #0056b3; }
+        .btn-success { background: #28a745; }
+        .btn-success:hover { background: #1e7e34; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Sistema de Email - Plano Blaze</h1>
+        
+        <div class="success">
+            ✅ <strong>Atualização Concluída!</strong><br>
+            O sistema foi atualizado para usar envio direto via Firebase Functions.
+        </div>
+
+        <div class="warning">
+            ⚠️ <strong>Ação Necessária:</strong><br>
+            Você precisa configurar a conta de cobrança e credenciais de email para ativar o envio direto.
+        </div>
+
+        <h2>🔧 Status das Configurações</h2>
+        
+        <div class="step">
+            <h4>1. Hosting (Frontend)</h4>
+            <div class="success">✅ Atualizado com sucesso</div>
+            <p>Botão alterado para <strong>"📧 Enviar Email"</strong> (envio direto)</p>
+        </div>
+
+        <div class="step">
+            <h4>2. Firebase Functions (Backend)</h4>
+            <div class="info">📦 Compiladas e prontas</div>
+            <p>Functions criadas: <code>sendReportEmail</code>, <code>sendDailyReport</code>, <code>sendLowStockAlert</code></p>
+        </div>
+
+        <div class="step">
+            <h4>3. Conta de Cobrança</h4>
+            <div class="error">❌ Precisa ser configurada</div>
+            <p>Erro: "Write access denied: please check billing account"</p>
+            <a href="https://console.firebase.google.com/project/bloquinhodigital" class="btn" target="_blank">
+                Abrir Firebase Console
+            </a>
+        </div>
+
+        <div class="step">
+            <h4>4. Credenciais de Email</h4>
+            <div class="warning">⚠️ Precisa ser configurada</div>
+            <p>Execute o script para configurar Gmail:</p>
+            <div class="command">configure-email-firebase.bat</div>
+        </div>
+
+        <h2>📋 Próximos Passos</h2>
+
+        <div class="step">
+            <h4>Passo 1: Configurar Conta de Cobrança</h4>
+            <ol>
+                <li>Acesse o <a href="https://console.firebase.google.com/project/bloquinhodigital" target="_blank">Firebase Console</a></li>
+                <li>Vá em <strong>Configurações → Uso e faturamento</strong></li>
+                <li>Certifique-se que o <strong>Plano Blaze</strong> está ativo</li>
+                <li>Verifique se há uma conta de cobrança válida</li>
+            </ol>
+        </div>
+
+        <div class="step">
+            <h4>Passo 2: Configurar Email</h4>
+            <p>Execute o arquivo que está aberto no seu editor:</p>
+            <div class="command">configure-email-firebase.bat</div>
+            <p><strong>Importante:</strong> Use uma senha de app do Gmail, não sua senha normal!</p>
+        </div>
+
+        <div class="step">
+            <h4>Passo 3: Deploy das Functions</h4>
+            <div class="command">firebase deploy --only functions</div>
+        </div>
+
+        <div class="step">
+            <h4>Passo 4: Testar o Sistema</h4>
+            <ol>
+                <li>Acesse: <a href="https://bloquinhodigital.web.app" target="_blank">https://bloquinhodigital.web.app</a></li>
+                <li>Vá em <strong>Relatórios</strong></li>
+                <li>Clique em <strong>"📧 Enviar por Email"</strong></li>
+                <li>Teste o botão <strong>"📧 Enviar Email"</strong></li>
+            </ol>
+        </div>
+
+        <h2>🔄 Como Funciona o Novo Sistema</h2>
+
+        <div class="info">
+            <strong>Fluxo Inteligente de Envio:</strong><br>
+            1️⃣ <strong>Primeira tentativa:</strong> Envio direto via Firebase Functions (servidor)<br>
+            2️⃣ <strong>Segunda tentativa:</strong> Fallback para mailto (abre cliente de email)<br>
+            3️⃣ <strong>Terceira tentativa:</strong> Copia para área de transferência
+        </div>
+
+        <h3>🎯 Vantagens do Envio Direto</h3>
+        <ul>
+            <li>✅ Email enviado automaticamente (sem intervenção do usuário)</li>
+            <li>✅ HTML formatado profissionalmente</li>
+            <li>✅ Funciona em qualquer dispositivo</li>
+            <li>✅ Não depende do cliente de email instalado</li>
+            <li>✅ Logs detalhados para monitoramento</li>
+        </ul>
+
+        <h2>🧪 Monitoramento</h2>
+        
+        <p>Abra o Console do Navegador (F12) para ver os logs:</p>
+        
+        <div class="step">
+            <h4>Sucesso (Envio Direto)</h4>
+            <div class="command">
+1️⃣ Tentando envio via servidor...<br>
+✅ Email enviado com sucesso via servidor!
+            </div>
+        </div>
+
+        <div class="step">
+            <h4>Fallback (Se Functions não funcionarem)</h4>
+            <div class="command">
+⚠️ Falha no envio via servidor. Tentando fallback local...<br>
+🌐 Usando método web<br>
+✅ Cliente de email aberto com sucesso!
+            </div>
+        </div>
+
+        <div class="success">
+            🎉 <strong>Sistema Pronto!</strong><br>
+            Após configurar a conta de cobrança e email, o sistema funcionará perfeitamente com envio automático.
+        </div>
+    </div>
+
+    <script>
+        console.log('🚀 Sistema de Email - Plano Blaze');
+        console.log('📧 Funcionalidades:');
+        console.log('  ✅ Envio direto via Firebase Functions');
+        console.log('  ✅ Fallback inteligente para mailto');
+        console.log('  ✅ Fallback final para clipboard');
+        console.log('  ✅ HTML formatado profissionalmente');
+        console.log('');
+        console.log('⚠️ Próximos passos:');
+        console.log('  1. Configurar conta de cobrança no Firebase');
+        console.log('  2. Executar configure-email-firebase.bat');
+        console.log('  3. Deploy das functions');
+        console.log('  4. Testar o sistema');
+    </script>
+</body>
+</html>

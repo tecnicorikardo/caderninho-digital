@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Toaster as HotToaster } from 'react-hot-toast';
 import { Toaster } from 'sonner';
+import { NotificationManager } from './components/NotificationManager';
 import { AuthProvider } from './contexts/AuthContext';
 import { SubscriptionProvider } from './contexts/SubscriptionContext';
 import { AppRoutes } from './routes';
@@ -8,6 +9,7 @@ import { MigrationPrompt } from './components/MigrationPrompt';
 import { MobileNavigation } from './components/MobileNavigation';
 import { startVersionCheck } from './utils/checkVersion';
 import { initializeCapacitorPlugins } from './utils/capacitorPlugins';
+import { initEmailJS } from './services/emailjsService';
 import { Capacitor } from '@capacitor/core';
 
 function AppContent() {
@@ -17,6 +19,9 @@ function AppContent() {
     
     // Inicializar plugins do Capacitor
     initializeCapacitorPlugins();
+    
+    // Inicializar EmailJS
+    initEmailJS();
     
     // Adicionar classes CSS baseadas na plataforma
     const platform = Capacitor.getPlatform();
@@ -31,6 +36,7 @@ function AppContent() {
   
   return (
     <>
+      <NotificationManager />
       <AppRoutes />
       <HotToaster position="top-right" />
       <Toaster 

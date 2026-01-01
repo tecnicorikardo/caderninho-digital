@@ -31,7 +31,10 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if request.auth != null;
       allow create: if request.auth.uid == userId;
-      allow update: if request.auth.uid == userId || isAdmin();
+      allow update: if isAdmin() || (
+        request.auth.uid == userId && 
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'subscription', 'fcmTokens'])
+      );
       allow delete: if isSuperAdmin();
     }
     

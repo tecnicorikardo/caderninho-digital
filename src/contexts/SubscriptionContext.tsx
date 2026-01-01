@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { useAuth } from './AuthContext';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, addDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import toast from 'react-hot-toast';
 
@@ -20,7 +20,7 @@ interface SubscriptionPlan {
 
 interface UserSubscription {
   plan: 'free' | 'premium';
-  status: 'active' | 'expired' | 'cancelled' | 'trial';
+  status: 'active' | 'expired' | 'cancelled' | 'trial' | 'pending';
   startDate: Date;
   endDate: Date;
   trialUsed: boolean;
@@ -50,7 +50,8 @@ interface SubscriptionContextType {
   upgradeToPremium: () => void;
   refreshSubscription: () => Promise<void>;
   createExpiredTestUser: () => Promise<void>;
-  activatePremiumSubscription: (amountPaid?: number) => Promise<void>;
+  activatePremiumSubscription: (amountPaid?: number, userId?: string) => Promise<void>;
+  requestPremiumActivation: (amountPaid: number, method: string) => Promise<void>;
   incrementUsage: (type: 'sale' | 'client' | 'product' | 'transaction') => Promise<void>;
 }
 
@@ -167,7 +168,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
           };
           
           // Atualizar no Firebase - remover campos undefined
-          const updateData = {
+          const updateData: any = {
             plan: subscriptionData.plan,
             status: subscriptionData.status,
             startDate: now,
@@ -375,6 +376,59 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     } else {
       toast.success(`🎉 Premium ativado por ${months} meses!`);
     }
+
+  };
+
+  const requestPremiumActivation = async (amountPaid: number, method: string) => {
+    if (!user) return;
+
+    try {
+      const now = new Date();
+      
+      // Atualizar status para pendente
+      // Sanitizar objeto para remover undefined
+      const pendingSubscription: any = {
+        plan: 'premium',
+        status: 'pending',
+        requestDate: now,
+        amountPaid: amountPaid,
+        paymentMethod: method,
+        userEmail: user.email,
+        userName: user.displayName || user.email,
+        startDate: subscription?.startDate || now,
+        endDate: subscription?.endDate || now,
+        trialUsed: subscription?.trialUsed || false
+      };
+
+      // Adicionar campos opcionais apenas se existirem
+      if (subscription?.lastPayment) pendingSubscription.lastPayment = subscription.lastPayment;
+
+      await setDoc(doc(db, 'subscriptions', user.uid), pendingSubscription);
+      setSubscription(pendingSubscription as any);
+
+      // 🔔 Notificar o Admin
+      // Buscar o UID do admin pelo email (ou hardcoded se preferir, mas busca é mais segura)
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, where('role', '==', 'admin'));
+      const querySnapshot = await getDocs(q);
+
+      querySnapshot.forEach(async (adminDoc) => {
+        await addDoc(collection(db, 'notifications'), {
+          userId: adminDoc.id,
+          title: '💰 Nova Solicitação de Pagamento',
+          message: `O usuário ${user.email} informou que pagou R$ ${amountPaid.toFixed(2)}. Verifique o comprovante.`,
+          type: 'payment_request',
+          read: false,
+          createdAt: now,
+          relatedUserId: user.uid
+        });
+      });
+
+      toast.success('Solicitação enviada! Aguardando aprovação do admin.');
+    } catch (error) {
+      console.error('Erro ao solicitar ativação:', error);
+      toast.error('Erro ao enviar solicitação.');
+    }
   };
 
   // Calcular se a assinatura está ativa
@@ -450,6 +504,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     refreshSubscription,
     createExpiredTestUser,
     activatePremiumSubscription,
+    requestPremiumActivation,
     incrementUsage
   };
 

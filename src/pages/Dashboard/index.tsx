@@ -1,21 +1,95 @@
 import { useAuth } from '../../contexts/AuthContext';
 import { useWindowSize } from '../../hooks/useWindowSize';
 import { useNavigate } from 'react-router-dom';
-import { SubscriptionStatus } from '../../components/SubscriptionStatus';
-import { FiadosWidget } from '../../components/FiadosWidget';
+
+import { SmartBriefingModal } from '../../components/SmartBriefingModal';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { useDailyStockAlert } from '../../hooks/useDailyStockAlert';
 import { MobileButton } from '../../components/MobileButton';
 import { QuickActionsFab } from '../../components/QuickActionsFab';
+import { useEffect, useState } from 'react';
+import { saleService } from '../../services/saleService';
+import { productService } from '../../services/productService';
+import { clientService } from '../../services/clientService';
 
 export function Dashboard() {
   const { user, logout } = useAuth();
   const { isMobile } = useWindowSize();
   const navigate = useNavigate();
-  const { createExpiredTestUser, activatePremiumSubscription, refreshSubscription } = useSubscription();
+  const { subscription, createExpiredTestUser, activatePremiumSubscription, refreshSubscription } = useSubscription();
   
+  // Estado para dados do negócio
+  const [businessData, setBusinessData] = useState<{
+    sales: any[];
+    products: any[];
+    clients: any[];
+    totalSales: number;
+    salesCount: number;
+  }>({
+    sales: [],
+    products: [],
+    clients: [],
+    totalSales: 0,
+    salesCount: 0
+  });
+
+  const [showBriefing, setShowBriefing] = useState(false);
+
   // Alerta diário de estoque baixo
   useDailyStockAlert();
+
+  // Carregar dados reais
+  useEffect(() => {
+    async function loadBusinessData() {
+      if (!user?.uid) return;
+
+      try {
+        console.log('🔄 Dashboard: Carregando dados...');
+        
+        // Carregar tudo em paralelo
+        const [sales, products, clients] = await Promise.all([
+          saleService.getSales(user.uid),
+          productService.getProducts(user.uid),
+          clientService.getClients(user.uid)
+        ]);
+
+        // Calcular totais de vendas
+        const totalSales = sales.reduce((sum, sale) => sum + (sale.total || 0), 0);
+
+        setBusinessData({
+          sales: sales as any[],
+          products: products as any[],
+          clients: clients as any[],
+          totalSales,
+          salesCount: sales.length
+        });
+
+        // Verificar se já exibiu neste turno (Manhã/Tarde/Noite)
+        const now = new Date();
+        const currentHour = now.getHours();
+        const currentDate = now.toLocaleDateString('pt-BR').replace(/\//g, '-');
+        let period = 'night';
+        
+        if (currentHour >= 5 && currentHour < 12) period = 'morning';
+        else if (currentHour >= 12 && currentHour < 18) period = 'afternoon';
+        
+        const briefingKey = `smart_briefing_${user.uid}_${currentDate}_${period}`;
+        const alreadyShown = localStorage.getItem(briefingKey);
+
+        if (!alreadyShown) {
+          setShowBriefing(true);
+          localStorage.setItem(briefingKey, 'true');
+        }
+        
+        console.log('✅ Dashboard: Dados carregados.');
+
+      } catch (error) {
+        console.error('❌ Erro ao carregar dados do negócio:', error);
+      }
+    }
+
+    loadBusinessData();
+  }, [user]);
 
   const handleLogout = async () => {
     await logout();
@@ -175,19 +249,19 @@ export function Dashboard() {
                   alignItems: 'center',
                   gap: '0.5rem',
                   padding: '0.25rem 0.75rem',
-                  background: 'rgba(59, 130, 246, 0.1)',
+                  background: subscription?.plan === 'premium' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(59, 130, 246, 0.1)',
                   borderRadius: '20px',
                   fontSize: '0.85rem',
-                  color: '#3b82f6',
+                  color: subscription?.plan === 'premium' ? '#d97706' : '#3b82f6',
                   fontWeight: '600'
                 }}>
                   <div style={{
                     width: '8px',
                     height: '8px',
-                    background: '#3b82f6',
+                    background: subscription?.plan === 'premium' ? '#d97706' : '#3b82f6',
                     borderRadius: '50%'
                   }} />
-                  Plano Gratuito
+                  {subscription?.plan === 'premium' ? 'Plano Premium' : 'Plano Gratuito'}
                 </div>
               </div>
             </div>
@@ -342,11 +416,6 @@ export function Dashboard() {
         </div>
       )}
       
-      {/* Widget de Fiados */}
-      <div style={{ marginBottom: '2rem', maxWidth: '1200px', margin: '0 auto 2rem auto' }}>
-        <FiadosWidget />
-      </div>
-      
       {/* Grid de apps inspirado no iOS */}
       <div style={{ 
         display: 'grid', 
@@ -465,7 +534,15 @@ export function Dashboard() {
         </p>
       </div>
 
-      <QuickActionsFab />
+      <QuickActionsFab onAiClick={() => setShowBriefing(true)} />
+      
+      {/* Smart Briefing Modal */}
+      {showBriefing && (
+        <SmartBriefingModal 
+          businessData={businessData} 
+          onClose={() => setShowBriefing(false)} 
+        />
+      )}
     </div>
   );
 }
